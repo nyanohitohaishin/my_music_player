@@ -27,7 +27,7 @@ jobs:
           rm -rf ios/
           flutter create --platforms=ios .
           flutter pub get
-          flutter build ios --config-only
+          # ✅ flutter build ios --config-only を削除しました
 
       - name: Add iOS Permissions
         run: |
@@ -76,13 +76,11 @@ jobs:
               with open(pbx_path, 'r') as f:
                   pbx = f.read()
 
-              # Dead Code Stripping & deployment target
               pbx = pbx.replace('DEAD_CODE_STRIPPING = YES;', 'DEAD_CODE_STRIPPING = NO;')
               pbx = pbx.replace('IPHONEOS_DEPLOYMENT_TARGET = 12.0;', 'IPHONEOS_DEPLOYMENT_TARGET = 13.0;')
               pbx = pbx.replace('IPHONEOS_DEPLOYMENT_TARGET = 11.0;', 'IPHONEOS_DEPLOYMENT_TARGET = 13.0;')
               pbx = pbx.replace('IPHONEOS_DEPLOYMENT_TARGET = 9.0;',  'IPHONEOS_DEPLOYMENT_TARGET = 13.0;')
 
-              # ✅ コード署名を完全に無効化（Run #6 の Development Team エラー対策）
               pbx = re.sub(r'DEVELOPMENT_TEAM = [A-Z0-9]*;', 'DEVELOPMENT_TEAM = \"\";', pbx)
               pbx = re.sub(r'CODE_SIGN_IDENTITY = \".*?\";', 'CODE_SIGN_IDENTITY = \"\";', pbx)
               pbx = pbx.replace('CODE_SIGNING_REQUIRED = YES;', 'CODE_SIGNING_REQUIRED = NO;')
@@ -93,9 +91,7 @@ jobs:
           "
 
       - name: Build iOS
-        run: |
-          flutter build ios --release --no-codesign \
-            --dart-define=FLUTTER_BUILD_MODE=release
+        run: flutter build ios --release --no-codesign
 
       - name: Package into IPA
         run: |

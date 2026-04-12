@@ -17,7 +17,6 @@ jobs:
         with:
           channel: 'stable'
 
-      # audiotags が flutter_rust_bridge 経由で Rust を使うため必須
       - name: Install Rust Apple Targets
         run: |
           rustup target add aarch64-apple-ios x86_64-apple-ios aarch64-apple-ios-sim
@@ -39,6 +38,15 @@ jobs:
           plutil -replace NSAppleMusicUsageDescription -string "ローカルの音楽ファイルを読み込むためにアクセス権限が必要です。" ios/Runner/Info.plist || \
           plutil -insert  NSAppleMusicUsageDescription -string "ローカルの音楽ファイルを読み込むためにアクセス権限が必要です。" ios/Runner/Info.plist
 
+      # ✅ 究極の奥義：Flutterの隠し設定ファイルに「署名不要」を直接叩き込む
+      - name: Inject Codesign Bypass into xcconfig
+        run: |
+          echo "CODE_SIGNING_ALLOWED = NO" >> ios/Flutter/Generated.xcconfig
+          echo "CODE_SIGNING_REQUIRED = NO" >> ios/Flutter/Generated.xcconfig
+          echo "CODE_SIGN_IDENTITY = \"\"" >> ios/Flutter/Generated.xcconfig
+          echo "DEVELOPMENT_TEAM = \"\"" >> ios/Flutter/Generated.xcconfig
+          echo "EXPANDED_CODE_SIGN_IDENTITY = \"\"" >> ios/Flutter/Generated.xcconfig
+
       - name: Patch Xcode project settings
         run: |
           python3 -c "
@@ -49,13 +57,11 @@ jobs:
               with open('ios/Podfile', 'r') as f:
                   podfile = f.read()
 
-              # ✅ platform 行の置換を 3 パターン対応（コメント済み・未コメント・行なし）
               if re.search(r'#\s*platform :ios', podfile):
                   podfile = re.sub(r'#\s*platform :ios,\s*\'[^\']+\'', \"platform :ios, '13.0'\", podfile)
               elif re.search(r'platform :ios', podfile):
                   podfile = re.sub(r'platform :ios,\s*\'[^\']+\'', \"platform :ios, '13.0'\", podfile)
               else:
-                  # どちらもない場合は先頭に追加
                   podfile = \"platform :ios, '13.0'\n\" + podfile
 
               if 'flutter_additional_ios_build_settings(target)' in podfile:
@@ -68,6 +74,7 @@ jobs:
                   config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
                   config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
                   config.build_settings['CODE_SIGN_IDENTITY'] = ''
+                  config.build_settings['EXPANDED_CODE_SIGN_IDENTITY'] = ''
                   config.build_settings['DEVELOPMENT_TEAM'] = ''
                 end
               '''
@@ -95,9 +102,6 @@ jobs:
                   f.write(pbx)
           "
 
-      # ✅ sqlite3 を sqlite.org からダウンロードしようとして失敗する問題への対策
-      # → pod install を手動で実行（リトライ付き）して先に完了させる
-      # → flutter build ios は Pods/ が存在すれば pod install をスキップする
       - name: Install CocoaPods dependencies (with retry)
         run: |
           cd ios
@@ -117,14 +121,16 @@ jobs:
           done
           cd ..
 
-      # ✅ FLUTTER_XCODE_* 環境変数で署名を完全無効化
+      # ✅ xcodebuild に証明書完全無視の最終命令を渡してビルド
       - name: Build iOS
         env:
           FLUTTER_XCODE_DEVELOPMENT_TEAM: ""
           FLUTTER_XCODE_CODE_SIGN_IDENTITY: ""
           FLUTTER_XCODE_CODE_SIGNING_REQUIRED: "NO"
           FLUTTER_XCODE_CODE_SIGNING_ALLOWED: "NO"
-        run: flutter build ios --release --no-codesign
+          FLUTTER_XCODE_EXPANDED_CODE_SIGN_IDENTITY: ""
+        run: |
+          flutter build ios --release --no-codesign --dart-define=FLUTTER_BUILD_MODE=release
 
       - name: Package into IPA
         run: |

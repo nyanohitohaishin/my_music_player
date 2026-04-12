@@ -49,10 +49,17 @@ jobs:
               with open('ios/Podfile', 'r') as f:
                   podfile = f.read()
 
-              podfile = podfile.replace('# platform :ios, \'12.0\'', 'platform :ios, \'13.0\'')
-              podfile = podfile.replace('# platform :ios, \'11.0\'', 'platform :ios, \'13.0\'')
+              # ✅ platform 行の置換を 3 パターン対応（コメント済み・未コメント・行なし）
+              if re.search(r'#\s*platform :ios', podfile):
+                  podfile = re.sub(r'#\s*platform :ios,\s*\'[^\']+\'', \"platform :ios, '13.0'\", podfile)
+              elif re.search(r'platform :ios', podfile):
+                  podfile = re.sub(r'platform :ios,\s*\'[^\']+\'', \"platform :ios, '13.0'\", podfile)
+              else:
+                  # どちらもない場合は先頭に追加
+                  podfile = \"platform :ios, '13.0'\n\" + podfile
 
-              injection = '''
+              if 'flutter_additional_ios_build_settings(target)' in podfile:
+                  injection = '''
                 flutter_additional_ios_build_settings(target)
                 target.build_configurations.each do |config|
                   config.build_settings['STRIP_STYLE'] = 'non-global'
@@ -64,7 +71,7 @@ jobs:
                   config.build_settings['DEVELOPMENT_TEAM'] = ''
                 end
               '''
-              podfile = podfile.replace('flutter_additional_ios_build_settings(target)', injection)
+                  podfile = podfile.replace('flutter_additional_ios_build_settings(target)', injection)
 
               with open('ios/Podfile', 'w') as f:
                   f.write(podfile)
@@ -79,7 +86,6 @@ jobs:
               pbx = pbx.replace('IPHONEOS_DEPLOYMENT_TARGET = 12.0;', 'IPHONEOS_DEPLOYMENT_TARGET = 13.0;')
               pbx = pbx.replace('IPHONEOS_DEPLOYMENT_TARGET = 11.0;', 'IPHONEOS_DEPLOYMENT_TARGET = 13.0;')
               pbx = pbx.replace('IPHONEOS_DEPLOYMENT_TARGET = 9.0;',  'IPHONEOS_DEPLOYMENT_TARGET = 13.0;')
-
               pbx = re.sub(r'DEVELOPMENT_TEAM = [A-Z0-9\"]*;', 'DEVELOPMENT_TEAM = \"\";', pbx)
               pbx = re.sub(r'CODE_SIGN_IDENTITY = \".*?\";', 'CODE_SIGN_IDENTITY = \"\";', pbx)
               pbx = pbx.replace('CODE_SIGNING_REQUIRED = YES;', 'CODE_SIGNING_REQUIRED = NO;')
@@ -89,9 +95,30 @@ jobs:
                   f.write(pbx)
           "
 
+      # ✅ sqlite3 を sqlite.org からダウンロードしようとして失敗する問題への対策
+      # → pod install を手動で実行（リトライ付き）して先に完了させる
+      # → flutter build ios は Pods/ が存在すれば pod install をスキップする
+      - name: Install CocoaPods dependencies (with retry)
+        run: |
+          cd ios
+          for attempt in 1 2 3; do
+            echo "=== pod install: attempt ${attempt}/3 ==="
+            if pod install --repo-update; then
+              echo "✅ pod install succeeded"
+              break
+            fi
+            if [ $attempt -lt 3 ]; then
+              echo "⚠️  Failed. Retrying in 30 seconds..."
+              sleep 30
+            else
+              echo "❌ All attempts failed"
+              exit 1
+            fi
+          done
+          cd ..
+
+      # ✅ FLUTTER_XCODE_* 環境変数で署名を完全無効化
       - name: Build iOS
-        # ✅ FLUTTER_XCODE_* 環境変数を使って xcodebuild に直接署名設定を渡す
-        # pbxproj の書き換えが pod install で上書きされても、これで確実に無効化できる
         env:
           FLUTTER_XCODE_DEVELOPMENT_TEAM: ""
           FLUTTER_XCODE_CODE_SIGN_IDENTITY: ""

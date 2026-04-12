@@ -17,12 +17,9 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Install Rust Apple Targets & Link Cargo
+      - name: Install Rust Apple Targets
         run: |
           rustup target add aarch64-apple-ios x86_64-apple-ios aarch64-apple-ios-sim
-          # ✅ Xcodeが迷わずRust翻訳機を見つけられるように、強制的にパス（ショートカット）を繋ぐ
-          sudo ln -sf ~/.cargo/bin/cargo /usr/local/bin/cargo
-          sudo ln -sf ~/.cargo/bin/rustup /usr/local/bin/rustup
 
       - name: Generate iOS project
         run: |
@@ -39,17 +36,18 @@ jobs:
           plutil -replace NSAppleMusicUsageDescription -string "ローカルの音楽ファイルを読み込むためにアクセス権限が必要です。" ios/Runner/Info.plist || \
           plutil -insert  NSAppleMusicUsageDescription -string "ローカルの音楽ファイルを読み込むためにアクセス権限が必要です。" ios/Runner/Info.plist
 
-      - name: Inject Bypasses into xcconfig
+      - name: Inject Bypasses and PATH into xcconfig
         run: |
           mkdir -p ios/Flutter
           touch ios/Flutter/Generated.xcconfig
-          echo "CODE_SIGNING_ALLOWED = NO" >> ios/Flutter/Generated.xcconfig
-          echo "CODE_SIGNING_REQUIRED = NO" >> ios/Flutter/Generated.xcconfig
-          echo "CODE_SIGN_IDENTITY = \"-\"" >> ios/Flutter/Generated.xcconfig
-          echo "DEVELOPMENT_TEAM = \"\"" >> ios/Flutter/Generated.xcconfig
-          echo "CODE_SIGN_STYLE = Manual" >> ios/Flutter/Generated.xcconfig
-          # ✅ Xcode 15のおせっかい機能（部品の勝手な消去）を無効化し、旧型システムを使わせる
-          echo "OTHER_LDFLAGS = \$(inherited) -Wl,-ld_classic" >> ios/Flutter/Generated.xcconfig
+          echo 'CODE_SIGNING_ALLOWED = NO' >> ios/Flutter/Generated.xcconfig
+          echo 'CODE_SIGNING_REQUIRED = NO' >> ios/Flutter/Generated.xcconfig
+          echo 'CODE_SIGN_IDENTITY = "-"' >> ios/Flutter/Generated.xcconfig
+          echo 'DEVELOPMENT_TEAM = ""' >> ios/Flutter/Generated.xcconfig
+          echo 'CODE_SIGN_STYLE = Manual' >> ios/Flutter/Generated.xcconfig
+          echo 'OTHER_LDFLAGS = $(inherited) -Wl,-ld_classic' >> ios/Flutter/Generated.xcconfig
+          # ✅ ここが最大の鍵！XcodeにRust翻訳機の場所を直接教え込む
+          echo 'PATH = ${PATH}:/Users/runner/.cargo/bin' >> ios/Flutter/Generated.xcconfig
 
       - name: Patch Xcode project settings
         run: |
@@ -72,7 +70,6 @@ jobs:
                   config.build_settings['CODE_SIGN_IDENTITY'] = '-'
                   config.build_settings['CODE_SIGN_STYLE'] = 'Manual'
                   config.build_settings['DEVELOPMENT_TEAM'] = ''
-                  # ✅ Podfileからも念押しで旧型システムを指定
                   config.build_settings['OTHER_LDFLAGS'] = ['$(inherited)', '-Wl,-ld_classic']
                 end
               '''

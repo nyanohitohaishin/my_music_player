@@ -26,13 +26,12 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
     if (imageBytes == null) return AppColors.background;
     
     try {
-      final paletteGenerator = PaletteGenerator.fromImageProvider(
+      final palette = await PaletteGenerator.fromImageProvider(
         MemoryImage(imageBytes),
       );
-      final palette = await paletteGenerator.generate();
       
       if (palette.colors.isNotEmpty) {
-        return palette.colors.first.color;
+        return palette.colors.first;
       }
     } catch (e) {
       print('Failed to extract dominant color: $e');
@@ -128,6 +127,8 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
 }
 
 void _showLyricsFullScreen(BuildContext context) {
+  final playerState = ref.read(audioPlayerProvider);
+  
   showModalBottomSheet(
     context: context,
     backgroundColor: Colors.black,
@@ -253,6 +254,7 @@ void _showAudioRoutePicker(BuildContext context) async {
             tooltip: '音質・再生設定',
           ),
         ],
+      ),
       body: LayoutBuilder(
         builder: (context, constraints) {
           final isSmallScreen = constraints.maxHeight < 600;
@@ -406,7 +408,7 @@ void _showAudioRoutePicker(BuildContext context) async {
                                 ),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.fullscreen, color: Colors.white.withValues(alpha: 0.9)),
+                                icon: Icon(Icons.fullscreen, color: Colors.white.withValues(alpha: 0.9)),
                                 onPressed: () => _showLyricsFullScreen(context),
                                 tooltip: '歌詞を全画面表示',
                               ),

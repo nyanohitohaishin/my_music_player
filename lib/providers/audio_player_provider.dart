@@ -361,6 +361,112 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
     }
   }
 
+  Future<int> pickAndLoadFolder() async {
+    try {
+      final folderPath = await FilePicker.platform.getDirectoryPath();
+      if (folderPath == null) return 0;
+
+      state = state.copyWith(isLoading: true);
+      final List<Song> newSongs = [];
+      
+      final folder = Directory(folderPath);
+      final files = await folder.list().toList();
+      
+      final Map<String, List<File>> groupedFiles = {};
+      
+      for (final file in files) {
+        if (file is File) {
+          final extension = p.extension(file.path).toLowerCase();
+          final fileName = p.basenameWithoutExtension(file.path);
+          
+          if (['.mp3', '.m4a', '.flac', '.wav', '.aac'].contains(extension)) {
+            if (!groupedFiles.containsKey(fileName)) {
+              groupedFiles[fileName] = [];
+            }
+            groupedFiles[fileName]!.add(file);
+          } else if (extension == '.lrc') {
+            if (!groupedFiles.containsKey(fileName)) {
+              groupedFiles[fileName] = [];
+            }
+            groupedFiles[fileName]!.add(file);
+          }
+        }
+      }
+      
+      for (final entry in groupedFiles.entries) {
+        final files = entry.value;
+        File? audioFile;
+        File? lrcFile;
+        
+        for (final file in files) {
+          final extension = p.extension(file.path).toLowerCase();
+          if (['.mp3', '.m4a', '.flac', '.wav', '.aac'].contains(extension)) {
+            audioFile = file;
+          } else if (extension == '.lrc') {
+            lrcFile = file;
+          }
+        }
+        
+        if (audioFile != null) {
+          var song = await _createSongFromMetadata(audioFile.path);
+          
+          final albumArt = await _extractAlbumArt(audioFile.path);
+          if (albumArt != null) song = song.copyWithAlbumArt(albumArt);
+          
+          if (lrcFile != null) {
+            final lyrics = await _parseLrcFile(lrcFile.path);
+            song = song.copyWith(
+              lrcPath: lrcFile.path,
+              lyrics: lyrics,
+            );
+          }
+          
+          await _dbHelper.insertOrUpdateSong(song);
+          newSongs.add(song);
+        }
+      }
+
+      final previousLength = state.playlist.length;
+      final allSongs = [...state.playlist, ...newSongs];
+      state = state.copyWith(playlist: allSongs);
+
+      if (_player.audioSource == null) {
+        final audioSources = allSongs.map((song) {
+          if (Platform.isAndroid || Platform.isIOS) {
+            String? artUri;
+            if (song.albumArt != null) {
+              artUri = Uri.dataFromBytes(song.albumArt!).toString();
+            }
+            
+            return AudioSource.uri(
+              Uri.file(song.filePath), 
+              tag: MediaItem(
+                id: song.id, 
+                title: song.title, 
+                artist: song.artist,
+                artUri: artUri != null ? Uri.parse(artUri) : null,
+              ),
+            );
+          } else {
+            return LocalFileStreamAudioSource(song.filePath);
+          }
+        }).toList();
+        final playlist = ConcatenatingAudioSource(children: audioSources);
+        await _player.setAudioSource(playlist, initialIndex: previousLength);
+        _player.play(); 
+      } else {
+        await _appendSongsToCurrentPlaylist(newSongs);
+      }
+      
+      return newSongs.length;
+    } catch (e) {
+      state = state.copyWith(errorMessage: 'Failed to load folder: $e');
+      return 0;
+    } finally {
+      state = state.copyWith(isLoading: false);
+    }
+  }
+
   Future<void> playSongAtIndex(int index) async {
     if (index < 0 || index >= state.playlist.length) return;
     

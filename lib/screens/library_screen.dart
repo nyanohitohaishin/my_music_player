@@ -237,27 +237,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          if (Platform.isIOS) {
-            // ✅ iOSの場合: 事前の権限チェックは不要（OS標準の選択画面が権限を兼ねるため）
-            await notifier.pickAndLoadSong();
-          } else {
-            // 🤖 Androidの場合: 事前にストレージ権限をチェックする
-            var status = await Permission.storage.request();
-            if (status.isGranted) {
-              await notifier.pickAndLoadSong();
-            } else {
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('ストレージ権限が必要です。設定で権限を許可してください。'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
-            }
-          }
-        },
+        onPressed: () => _showAddMusicBottomSheet(context, notifier),
         backgroundColor: AppColors.accent,
         child: const Icon(
           Icons.add_rounded,
@@ -294,6 +274,105 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     showDialog(
       context: context,
       builder: (context) => PlaylistSelectionDialog(songId: songId),
+    );
+  }
+
+  void _showAddMusicBottomSheet(BuildContext context, dynamic notifier) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.textDisabled,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              '音楽を追加',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: const Icon(
+                Icons.music_note,
+                color: AppColors.accent,
+                size: 24,
+              ),
+              title: const Text(
+                '1曲ずつ追加',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              onTap: () async {
+                Navigator.pop(context);
+                if (Platform.isIOS) {
+                  await notifier.pickAndLoadSong();
+                } else {
+                  var status = await Permission.storage.request();
+                  if (status.isGranted) {
+                    await notifier.pickAndLoadSong();
+                  } else {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('ストレージ権限が必要です。設定で権限を許可してください。'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.folder,
+                color: AppColors.accent,
+                size: 24,
+              ),
+              title: const Text(
+                'フォルダごと一括追加',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              onTap: () async {
+                Navigator.pop(context);
+                final addedCount = await notifier.pickAndLoadFolder();
+                if (addedCount > 0 && mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('$addedCount曲を追加しました'),
+                      backgroundColor: AppColors.accent,
+                    ),
+                  );
+                }
+              },
+            ),
+            const SizedBox(height: 10),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -250,19 +250,28 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       ),
       bottomNavigationBar: playerState.currentSong != null
           ? SafeArea(
-              child: MiniPlayerWithProgress(
-                currentSong: playerState.currentSong,
-                isPlaying: playerState.isPlaying,
+              child: GestureDetector(
                 onTap: () => _openNowPlaying(context),
-                onPlayPause: () async {
-                  if (playerState.isPlaying) {
-                    await notifier.pause();
-                  } else {
-                    await notifier.play();
+                onVerticalDragEnd: (details) {
+                  // Check if user swiped up (negative velocity)
+                  if (details.primaryVelocity! < 0) {
+                    _openNowPlaying(context);
                   }
                 },
-                positionStream: notifier.positionStream,
-                duration: playerState.duration,
+                child: MiniPlayerWithProgress(
+                  currentSong: playerState.currentSong,
+                  isPlaying: playerState.isPlaying,
+                  onTap: () => _openNowPlaying(context),
+                  onPlayPause: () async {
+                    if (playerState.isPlaying) {
+                      await notifier.pause();
+                    } else {
+                      await notifier.play();
+                    }
+                  },
+                  positionStream: notifier.positionStream,
+                  duration: playerState.duration,
+                ),
               ),
             )
           : null,

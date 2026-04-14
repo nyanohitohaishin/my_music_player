@@ -9,6 +9,7 @@ import '../providers/audio_player_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/database_helper.dart';
 import '../widgets/lyric_view.dart';
+import '../models/lyric_line.dart';
 
 class NowPlayingScreen extends ConsumerStatefulWidget {
   const NowPlayingScreen({super.key});
@@ -38,6 +39,15 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
     }
     
     return AppColors.background;
+  }
+
+  int _getCurrentLyricIndex(List<LyricLine> lyrics, Duration position) {
+    for (int i = 0; i < lyrics.length; i++) {
+      if (lyrics[i].position > position) {
+        return i > 0 ? i - 1 : 0;
+      }
+    }
+    return lyrics.isNotEmpty ? lyrics.length - 1 : 0;
   }
 
   void _showAudioSettingsBottomSheet(BuildContext context) {
@@ -73,7 +83,7 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
                 inactiveColor: AppColors.surfaceVariant,
                 onChanged: (value) {
                   setState(() => _playbackSpeed = value);
-                  // TODO: just_audioで再生速度を適用
+                  ref.read(audioPlayerProvider.notifier).setPlaybackSpeed(value);
                 },
               ),
               const SizedBox(height: 24),
@@ -97,7 +107,7 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
                 inactiveColor: AppColors.surfaceVariant,
                 onChanged: (value) {
                   setState(() => _pitch = value);
-                  // TODO: just_audioでピッチを適用
+                  ref.read(audioPlayerProvider.notifier).setPitch(value);
                 },
               ),
               const SizedBox(height: 24),
@@ -464,15 +474,48 @@ void _showAudioRoutePicker(BuildContext context) async {
                           ],
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          currentSong.lyrics.take(2).map((lyric) => lyric.text).join('\n'),
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.6),
-                            fontSize: 12,
-                            height: 1.4,
+                        SizedBox(
+                          height: 60,
+                          child: StreamBuilder<Duration>(
+                            stream: ref.read(audioPlayerProvider.notifier).positionStream,
+                            builder: (context, snapshot) {
+                              final position = snapshot.data ?? Duration.zero;
+                              final currentIndex = _getCurrentLyricIndex(currentSong.lyrics, position);
+                              
+                              return ListView.builder(
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: currentSong.lyrics.length,
+                                controller: ScrollController(),
+                                scrollDirection: Axis.vertical,
+                                itemExtent: 20,
+                                itemBuilder: (context, index) {
+                                  final lyric = currentSong.lyrics[index];
+                                  final isCurrent = index == currentIndex;
+                                  final isNear = (index - currentIndex).abs() <= 1;
+                                  
+                                  if (index < currentIndex - 1 || index > currentIndex + 2) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 2),
+                                    child: Text(
+                                      lyric.text,
+                                      style: TextStyle(
+                                        color: isCurrent 
+                                            ? Colors.white 
+                                            : Colors.white.withValues(alpha: 0.5),
+                                        fontSize: isCurrent ? 14 : 12,
+                                        fontWeight: isCurrent ? FontWeight.w600 : FontWeight.normal,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  );
+                                },
+                              );
+                            },
                           ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),

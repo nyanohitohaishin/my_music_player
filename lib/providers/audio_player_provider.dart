@@ -60,6 +60,8 @@ class AudioPlayerState {
   final List<Map<String, dynamic>> playlists;
   final bool isEqualizerEnabled;
   final List<double> equalizerGains;
+  final double playbackSpeed;
+  final double pitch;
 
   const AudioPlayerState({
     this.playlist = const [],
@@ -75,6 +77,8 @@ class AudioPlayerState {
     this.playlists = const [],
     this.isEqualizerEnabled = false,
     this.equalizerGains = const [0.0, 0.0, 0.0, 0.0, 0.0],
+    this.playbackSpeed = 1.0,
+    this.pitch = 0.0,
   });
 
   AudioPlayerState copyWith({
@@ -92,6 +96,8 @@ class AudioPlayerState {
     List<Map<String, dynamic>>? playlists,
     bool? isEqualizerEnabled,
     List<double>? equalizerGains,
+    double? playbackSpeed,
+    double? pitch,
   }) {
     return AudioPlayerState(
       playlist: playlist ?? this.playlist,
@@ -107,6 +113,8 @@ class AudioPlayerState {
       playlists: playlists ?? this.playlists,
       isEqualizerEnabled: isEqualizerEnabled ?? this.isEqualizerEnabled,
       equalizerGains: equalizerGains ?? this.equalizerGains,
+      playbackSpeed: playbackSpeed ?? this.playbackSpeed,
+      pitch: pitch ?? this.pitch,
     );
   }
 
@@ -128,6 +136,24 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
   Stream<double> get volumeStream => _player.volumeStream;
 
   void setVolume(double value) => _player.setVolume(value);
+
+  Future<void> setPlaybackSpeed(double speed) async {
+    try {
+      await _player.setSpeed(speed);
+      state = state.copyWith(playbackSpeed: speed);
+    } catch (e) {
+      state = state.copyWith(errorMessage: 'Failed to set playback speed: $e');
+    }
+  }
+
+  Future<void> setPitch(double pitch) async {
+    try {
+      await _player.setPitch(pitch);
+      state = state.copyWith(pitch: pitch);
+    } catch (e) {
+      state = state.copyWith(errorMessage: 'Failed to set pitch: $e');
+    }
+  }
   
   final DatabaseHelper _dbHelper = DatabaseHelper();
 

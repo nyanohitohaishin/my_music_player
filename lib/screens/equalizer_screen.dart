@@ -49,11 +49,13 @@ class EqualizerScreen extends ConsumerWidget {
           const SizedBox(width: 16),
         ],
       ),
-      body: Platform.isWindows
-          ? _buildUnsupportedPlatformMessage()
-          : playerState.isEqualizerEnabled
-              ? _buildEqualizerControls(context, playerState, notifier) // ✅ context を渡す
-              : _buildDisabledMessage(),
+      body: SingleChildScrollView(
+        child: Platform.isWindows
+            ? _buildUnsupportedPlatformMessage()
+            : playerState.isEqualizerEnabled
+                ? _buildEqualizerControls(context, playerState, notifier) // ✅ context を渡す
+                : _buildDisabledMessage(),
+      ),
     );
   }
 

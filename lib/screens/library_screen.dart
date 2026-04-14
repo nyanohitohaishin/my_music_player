@@ -249,27 +249,33 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         ),
       ),
       bottomNavigationBar: playerState.currentSong != null
-          ? MiniPlayerWithProgress(
-              currentSong: playerState.currentSong,
-              isPlaying: playerState.isPlaying,
-              onTap: () => _openNowPlaying(context),
-              onPlayPause: () async {
-                if (playerState.isPlaying) {
-                  await notifier.pause();
-                } else {
-                  await notifier.play();
-                }
-              },
-              positionStream: notifier.positionStream,
-              duration: playerState.duration,
+          ? SafeArea(
+              child: MiniPlayerWithProgress(
+                currentSong: playerState.currentSong,
+                isPlaying: playerState.isPlaying,
+                onTap: () => _openNowPlaying(context),
+                onPlayPause: () async {
+                  if (playerState.isPlaying) {
+                    await notifier.pause();
+                  } else {
+                    await notifier.play();
+                  }
+                },
+                positionStream: notifier.positionStream,
+                duration: playerState.duration,
+              ),
             )
           : null,
     );
   }
 
   void _openNowPlaying(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (context) => NowPlayingScreen()),
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const NowPlayingScreen(),
     );
   }
 

@@ -131,13 +131,25 @@ void _showLyricsFullScreen(BuildContext context) {
   
   showModalBottomSheet(
     context: context,
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.transparent,
     isScrollControlled: true,
     builder: (context) => DraggableScrollableSheet(
       initialChildSize: 0.9,
       maxChildSize: 1.0,
       minChildSize: 0.5,
       builder: (context, scrollController) => Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              _dominantColor?.withValues(alpha: 0.9) ?? Colors.black,
+              _dominantColor?.withValues(alpha: 0.6) ?? Colors.black,
+              Colors.black,
+            ],
+            stops: const [0.0, 0.6, 1.0],
+          ),
+        ),
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
@@ -162,23 +174,9 @@ void _showLyricsFullScreen(BuildContext context) {
             const SizedBox(height: 20),
             // 歌詞全文
             Expanded(
-              child: SingleChildScrollView(
-                controller: scrollController,
+              child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: playerState.currentSong?.lyrics.map((lyric) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Text(
-                      lyric.text,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        height: 1.6,
-                      ),
-                    ),
-                  )).toList() ?? [],
-                ),
+                child: const LyricView(),
               ),
             ),
           ],
@@ -218,112 +216,271 @@ void _showAudioRoutePicker(BuildContext context) async {
     final playerState = ref.watch(audioPlayerProvider);
     final notifier = ref.read(audioPlayerProvider.notifier);
     final currentSong = playerState.currentSong;
-                  Container(
-                    width: MediaQuery.of(context).size.width * 0.8,
-                    height: MediaQuery.of(context).size.width * 0.8,
-                    constraints: const BoxConstraints(maxWidth: 360, maxHeight: 360),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.4),
-                          blurRadius: 30,
-                          offset: const Offset(0, 15),
-                        ),
-                        const SizedBox(height: 12),
-                      ],
-                    ),
-                  ),
-                SizedBox(height: isSmallScreen ? 20 : 30),
-                
-                // 出力先変更ボタン
-                if (Platform.isIOS)
-                  Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.speaker_group, color: AppColors.textSecondary),
-                          onPressed: () => _showAudioRoutePicker(context),
-                          tooltip: '出力先を変更',
-                        ),
-                        const SizedBox(width: 10),
-                        const Text(
-                          '出力先',
-                          style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
-                        ),
-                      ],
-                    ),
-                  ),
-                SizedBox(height: isSmallScreen ? 10 : 20),
-                
-                // コントロールボタン
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+
+    if (currentSong == null) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
+        body: const Center(child: Text('Playback Screen', style: TextStyle(color: AppColors.textPrimary))),
+      );
+    }
+
+    // Extract dominant color from album art
+    if (_dominantColor == null && currentSong.albumArt != null) {
+      _extractDominantColor(currentSong.albumArt).then((color) {
+        if (mounted) {
+          setState(() => _dominantColor = color);
+        }
+      });
+    }
+
+    return Scaffold(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              _dominantColor?.withValues(alpha: 0.8) ?? AppColors.background,
+              _dominantColor?.withValues(alpha: 0.4) ?? AppColors.background,
+              Colors.black,
+            ],
+            stops: const [0.0, 0.6, 1.0],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // App Bar
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     IconButton(
-                      icon: Icon(Icons.shuffle, color: playerState.isShuffleModeEnabled ? AppColors.accent : AppColors.textSecondary),
-                      onPressed: notifier.toggleShuffle,
+                      icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 28),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                    const Text(
+                      'Now Playing',
+                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.skip_previous, size: 36, color: AppColors.textPrimary),
-                      onPressed: notifier.playPrevious
-                    ),
-                    Container(
-                      decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
-                      child: IconButton(
-                        icon: Icon(playerState.isPlaying ? Icons.pause : Icons.play_arrow, size: 40, color: Colors.black),
-                        onPressed: notifier.togglePlayPause,
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.skip_next, size: 36, color: AppColors.textPrimary),
-                      onPressed: notifier.playNext
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.repeat, color: playerState.repeatMode != PlaylistMode.off ? AppColors.accent : AppColors.textSecondary),
-                      onPressed: notifier.toggleRepeat,
+                      icon: const Icon(Icons.tune, color: Colors.white, size: 24),
+                      onPressed: () => _showAudioSettingsBottomSheet(context),
+                      tooltip: 'Audio Settings',
                     ),
                   ],
                 ),
-                SizedBox(height: isSmallScreen ? 20 : 30),
-                
-                // 音量スライダー（PC向け、目立たなく配置）
-                Opacity(
-                  opacity: 0.7,
-                  child: Row(
-                    children: [
-                      const Icon(Icons.volume_down, color: AppColors.textSecondary, size: 18),
-                      Expanded(
-                        child: StreamBuilder<double>(
-                          stream: notifier.volumeStream,
-                          builder: (context, snapshot) {
-                            return Slider(
-                              value: snapshot.data ?? 1.0,
-                              onChanged: notifier.setVolume,
-                              activeColor: AppColors.accent,
-                              inactiveColor: AppColors.surface,
-                            );
-                          }
-                        )
+              ),
+              
+              // Main Content
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isSmallScreen = constraints.maxHeight < 600;
+                    return SingleChildScrollView(
+                      padding: EdgeInsets.symmetric(horizontal: constraints.maxWidth * 0.08),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(height: isSmallScreen ? 10 : 30),
+                          
+                          // Album Artwork
+                          Container(
+                            width: constraints.maxWidth * 0.8,
+                            height: constraints.maxWidth * 0.8,
+                            constraints: const BoxConstraints(maxWidth: 360, maxHeight: 360),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.4),
+                                  blurRadius: 30,
+                                  offset: const Offset(0, 15),
+                                ),
+                              ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(20),
+                              child: currentSong.albumArt != null
+                                  ? Image.memory(
+                                      currentSong.albumArt!,
+                                      fit: BoxFit.cover,
+                                    )
+                                  : Container(
+                                      color: AppColors.surfaceVariant,
+                                      child: const Icon(
+                                        Icons.music_note,
+                                        size: 80,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                          
+                          SizedBox(height: isSmallScreen ? 20 : 40),
+                          
+                          // Song Info
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Column(
+                              children: [
+                                Text(
+                                  currentSong.title,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 26,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  currentSong.artist,
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.7),
+                                    fontSize: 18,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          
+                          SizedBox(height: isSmallScreen ? 20 : 30),
+                          
+                          // Progress Bar
+                          StreamBuilder<Duration>(
+                            stream: notifier.positionStream,
+                            builder: (context, snapshot) {
+                              final position = snapshot.data ?? Duration.zero;
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                child: ProgressBar(
+                                  progress: position,
+                                  total: playerState.duration ?? position,
+                                  progressBarColor: Colors.white,
+                                  baseBarColor: Colors.white.withValues(alpha: 0.3),
+                                  thumbColor: Colors.white,
+                                  timeLabelTextStyle: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12),
+                                  onSeek: (duration) => notifier.seekTo(duration),
+                                ),
+                              );
+                            },
+                          ),
+                          
+                          SizedBox(height: isSmallScreen ? 20 : 30),
+                          
+                          // Control Buttons
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              IconButton(
+                                icon: Icon(Icons.shuffle, color: playerState.isShuffleModeEnabled ? Colors.white : Colors.white.withValues(alpha: 0.5)),
+                                onPressed: notifier.toggleShuffle,
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.skip_previous, size: 36, color: Colors.white),
+                                onPressed: notifier.playPrevious
+                              ),
+                              Container(
+                                decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
+                                child: IconButton(
+                                  icon: Icon(playerState.isPlaying ? Icons.pause : Icons.play_arrow, size: 40, color: Colors.black),
+                                  onPressed: notifier.togglePlayPause,
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.skip_next, size: 36, color: Colors.white),
+                                onPressed: notifier.playNext
+                              ),
+                              IconButton(
+                                icon: Icon(Icons.repeat, color: playerState.repeatMode != PlaylistMode.off ? Colors.white : Colors.white.withValues(alpha: 0.5)),
+                                onPressed: notifier.toggleRepeat,
+                              ),
+                            ],
+                          ),
+                          
+                          SizedBox(height: isSmallScreen ? 20 : 30),
+                          
+                          // Output Button (iOS only)
+                          if (Platform.isIOS)
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.speaker_group, color: Colors.white),
+                                  onPressed: () => _showAudioRoutePicker(context),
+                                  tooltip: 'Change Output',
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Output',
+                                  style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 14),
+                                ),
+                              ],
+                            ),
+                          
+                          SizedBox(height: isSmallScreen ? 10 : 20),
+                        ],
                       ),
-                      const Icon(Icons.volume_up, color: AppColors.textSecondary, size: 18),
-                    ],
+                    );
+                  },
+                ),
+              ),
+              
+              // Lyrics Preview Card
+              if (currentSong.lyrics.isNotEmpty)
+                GestureDetector(
+                  onTap: () => _showLyricsFullScreen(context),
+                  child: Container(
+                    margin: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Lyrics',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.9),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            Icon(Icons.fullscreen, color: Colors.white.withValues(alpha: 0.9)),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          currentSong.lyrics.take(2).map((lyric) => lyric.text).join('\n'),
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.6),
+                            fontSize: 12,
+                            height: 1.4,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                SizedBox(height: isSmallScreen ? 20 : 40),
-                
-                // リアルタイム歌詞表示
-                SizedBox(
-                  height: constraints.maxHeight * 0.4, // 画面の高さの40%を歌詞エリアにする
-                  child: const LyricView(),
-                ),
-                SizedBox(height: isSmallScreen ? 20 : 40),
-              ],
-            ),
-          );
-        },
+            ],
+          ),
+        ),
       ),
     );
   }

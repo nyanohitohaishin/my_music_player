@@ -128,18 +128,18 @@ class _LyricLineItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final (color, fontSize, fontWeight) = switch (state) {
       _LyricLineState.highlighted => (
-          AppColors.lyricHighlight,
-          18.0,
+          Colors.white,
+          24.0,
           FontWeight.bold,
         ),
       _LyricLineState.near => (
-          AppColors.lyricNear,
-          15.0,
+          Colors.white.withValues(alpha: 0.6),
+          18.0,
           FontWeight.w500,
         ),
       _LyricLineState.normal => (
-          AppColors.lyricDefault,
-          14.0,
+          Colors.white.withValues(alpha: 0.5),
+          18.0,
           FontWeight.normal,
         ),
     };

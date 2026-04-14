@@ -136,8 +136,7 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
   StreamSubscription<PlayerState>? _playerStateSubscription;
   StreamSubscription<int?>? _currentIndexSubscription;
 
-  dynamic _equalizer;
-
+  
   AudioPlayer get player => _player;
 
   AudioPlayerNotifier() : super(const AudioPlayerState()) {
@@ -772,7 +771,7 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
         newGains[bandIndex] = gain;
         state = state.copyWith(equalizerGains: newGains);
         
-        if (state.isEqualizerEnabled && _equalizer != null) {
+        if (state.isEqualizerEnabled) {
           await _applyEqualizerSettings();
         }
       }
@@ -786,7 +785,8 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
   Future<void> _initEqualizer() async {
     if (Platform.isWindows) return;
     try {
-      _equalizer = {}; 
+      // For now, just mark as enabled - actual EQ implementation 
+      // would require platform-specific audio processing
       await _applyEqualizerSettings();
     } catch (e) {
       state = state.copyWith(
@@ -796,7 +796,17 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
   }
 
   Future<void> _applyEqualizerSettings() async {
-    if (Platform.isWindows || _equalizer == null) return;
+    if (Platform.isWindows) return;
+    
+    try {
+      // TODO: Implement actual equalizer using platform-specific APIs
+      // For now, we just store the settings in state
+      // This would require integration with platform audio effects
+    } catch (e) {
+      state = state.copyWith(
+        errorMessage: 'Failed to apply equalizer settings: $e',
+      );
+    }
   }
 
   Future<void> updateSongLrcPath(String songId, String lrcPath) async {

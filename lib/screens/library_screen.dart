@@ -238,22 +238,23 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          // ストレージ権限のリクエスト
-          var status = await Permission.storage.request();
           if (Platform.isIOS) {
-            status = await Permission.photos.request();
-          }
-          
-          if (status.isGranted) {
+            // ✅ iOSの場合: 事前の権限チェックは不要（OS標準の選択画面が権限を兼ねるため）
             await notifier.pickAndLoadSong();
           } else {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('ストレージ権限が必要です。設定で権限を許可してください。'),
-                  backgroundColor: Colors.red,
-                ),
-              );
+            // 🤖 Androidの場合: 事前にストレージ権限をチェックする
+            var status = await Permission.storage.request();
+            if (status.isGranted) {
+              await notifier.pickAndLoadSong();
+            } else {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('ストレージ権限が必要です。設定で権限を許可してください。'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
             }
           }
         },

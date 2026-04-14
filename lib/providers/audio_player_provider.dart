@@ -364,8 +364,7 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
   Future<int> pickAndLoadFolder() async {
     try {
       final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['mp3', 'm4a', 'flac', 'wav', 'aac', 'lrc'],
+        type: FileType.any,
         allowMultiple: true,
       );
       if (result == null || result.files.isEmpty) return 0;
@@ -373,9 +372,17 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
       state = state.copyWith(isLoading: true);
       final List<Song> newSongs = [];
       
+      // 拡張子でフィルタリング
+      final allowedExtensions = ['.mp3', '.m4a', '.flac', '.wav', '.aac', '.lrc'];
+      final filteredFiles = result.files.where((file) {
+        if (file.path == null) return false;
+        final extension = p.extension(file.path!).toLowerCase();
+        return allowedExtensions.contains(extension);
+      }).toList();
+      
       final Map<String, List<PlatformFile>> groupedFiles = {};
       
-      for (final file in result.files) {
+      for (final file in filteredFiles) {
         if (file.path != null) {
           final extension = p.extension(file.path!).toLowerCase();
           final fileName = p.basenameWithoutExtension(file.path!);

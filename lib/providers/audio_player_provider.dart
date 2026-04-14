@@ -363,21 +363,22 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
 
   Future<int> pickAndLoadFolder() async {
     try {
-      final folderPath = await FilePicker.platform.getDirectoryPath();
-      if (folderPath == null) return 0;
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['mp3', 'm4a', 'flac', 'wav', 'aac', 'lrc'],
+        allowMultiple: true,
+      );
+      if (result == null || result.files.isEmpty) return 0;
 
       state = state.copyWith(isLoading: true);
       final List<Song> newSongs = [];
       
-      final folder = Directory(folderPath);
-      final files = await folder.list().toList();
+      final Map<String, List<PlatformFile>> groupedFiles = {};
       
-      final Map<String, List<File>> groupedFiles = {};
-      
-      for (final file in files) {
-        if (file is File) {
-          final extension = p.extension(file.path).toLowerCase();
-          final fileName = p.basenameWithoutExtension(file.path);
+      for (final file in result.files) {
+        if (file.path != null) {
+          final extension = p.extension(file.path!).toLowerCase();
+          final fileName = p.basenameWithoutExtension(file.path!);
           
           if (['.mp3', '.m4a', '.flac', '.wav', '.aac'].contains(extension)) {
             if (!groupedFiles.containsKey(fileName)) {
@@ -395,11 +396,11 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
       
       for (final entry in groupedFiles.entries) {
         final files = entry.value;
-        File? audioFile;
-        File? lrcFile;
+        PlatformFile? audioFile;
+        PlatformFile? lrcFile;
         
         for (final file in files) {
-          final extension = p.extension(file.path).toLowerCase();
+          final extension = p.extension(file.path!).toLowerCase();
           if (['.mp3', '.m4a', '.flac', '.wav', '.aac'].contains(extension)) {
             audioFile = file;
           } else if (extension == '.lrc') {
@@ -407,16 +408,16 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
           }
         }
         
-        if (audioFile != null) {
-          var song = await _createSongFromMetadata(audioFile.path);
+        if (audioFile != null && audioFile.path != null) {
+          var song = await _createSongFromMetadata(audioFile.path!);
           
-          final albumArt = await _extractAlbumArt(audioFile.path);
+          final albumArt = await _extractAlbumArt(audioFile.path!);
           if (albumArt != null) song = song.copyWithAlbumArt(albumArt);
           
-          if (lrcFile != null) {
-            final lyrics = await _parseLrcFile(lrcFile.path);
+          if (lrcFile != null && lrcFile.path != null) {
+            final lyrics = await _parseLrcFile(lrcFile.path!);
             song = song.copyWith(
-              lrcPath: lrcFile.path,
+              lrcPath: lrcFile.path!,
               lyrics: lyrics,
             );
           }
@@ -460,7 +461,7 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
       
       return newSongs.length;
     } catch (e) {
-      state = state.copyWith(errorMessage: 'Failed to load folder: $e');
+      state = state.copyWith(errorMessage: 'Failed to load files: $e');
       return 0;
     } finally {
       state = state.copyWith(isLoading: false);

@@ -159,8 +159,6 @@ class _LyricLineItem extends StatelessWidget {
           child: Text(
             lyricLine.text.isEmpty ? '・' : lyricLine.text,
             textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
           ),
         ),
       ),

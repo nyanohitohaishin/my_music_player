@@ -70,7 +70,7 @@ class _MiniPlayerWithProgressState extends State<MiniPlayerWithProgress> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: widget.onTap,
       child: Stack(
         children: [
           // Main content
@@ -98,11 +98,11 @@ class _MiniPlayerWithProgressState extends State<MiniPlayerWithProgress> {
                     color: Colors.white.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: currentSong?.albumArt != null
+                  child: widget.currentSong?.albumArt != null
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(8),
                           child: Image.memory(
-                            currentSong!.albumArt!,
+                            widget.currentSong!.albumArt!,
                             width: 48,
                             height: 48,
                             fit: BoxFit.cover,
@@ -131,7 +131,7 @@ class _MiniPlayerWithProgressState extends State<MiniPlayerWithProgress> {
                     children: [
                       // Song title
                       Text(
-                        currentSong?.title ?? 'Unknown Song',
+                        widget.currentSong?.title ?? 'Unknown Song',
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -143,7 +143,7 @@ class _MiniPlayerWithProgressState extends State<MiniPlayerWithProgress> {
                       const SizedBox(height: 4),
                       // Artist name
                       Text(
-                        currentSong?.artist ?? 'Unknown Artist',
+                        widget.currentSong?.artist ?? 'Unknown Artist',
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.7),
                           fontWeight: FontWeight.w500,
@@ -166,13 +166,13 @@ class _MiniPlayerWithProgressState extends State<MiniPlayerWithProgress> {
                   ),
                   child: IconButton(
                     icon: Icon(
-                      isPlaying
+                      widget.isPlaying
                           ? Icons.pause
                           : Icons.play_arrow,
                       size: 24,
                     ),
                     color: _dominantColor,
-                    onPressed: onPlayPause,
+                    onPressed: widget.onPlayPause,
                   ),
                 ),
               ],
@@ -180,7 +180,7 @@ class _MiniPlayerWithProgressState extends State<MiniPlayerWithProgress> {
           ),
           
           // Progress bar at bottom
-          if (positionStream != null && duration != null)
+          if (widget.positionStream != null && widget.duration != null)
             Positioned(
               bottom: 0,
               left: 0,
@@ -191,11 +191,11 @@ class _MiniPlayerWithProgressState extends State<MiniPlayerWithProgress> {
                   bottomRight: Radius.circular(16),
                 ),
                 child: StreamBuilder<Duration>(
-                  stream: positionStream!,
+                  stream: widget.positionStream!,
                   builder: (context, snapshot) {
                     final position = snapshot.data ?? Duration.zero;
-                    final progress = duration!.inMilliseconds > 0 
-                        ? position.inMilliseconds / duration!.inMilliseconds 
+                    final progress = widget.duration!.inMilliseconds > 0 
+                        ? position.inMilliseconds / widget.duration!.inMilliseconds 
                         : 0.0;
                     
                     return LinearProgressIndicator(

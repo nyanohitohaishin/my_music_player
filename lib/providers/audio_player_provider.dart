@@ -201,6 +201,9 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
         }).toList();
         final playlist = ConcatenatingAudioSource(children: audioSources);
         await _player.setAudioSource(playlist, initialIndex: 0);
+        
+        // Initialize pitch after setting audio source to ensure pitch changes work
+        await _player.setPitch(state.pitch);
       }
     } catch (e) {
       print('Failed to load saved songs: $e');

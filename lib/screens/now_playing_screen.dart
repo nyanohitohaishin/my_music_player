@@ -67,30 +67,6 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 音量
-              Text(
-                '音量: ${(_volume * 100).toInt()}%',
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Slider(
-                value: _volume,
-                min: 0.0,
-                max: 1.0,
-                divisions: 20,
-                activeColor: AppColors.accent,
-                inactiveColor: AppColors.surfaceVariant,
-                onChanged: (value) {
-                  setState(() => _volume = value);
-                  ref.read(audioPlayerProvider.notifier).player.setVolume(value);
-                },
-              ),
-              const SizedBox(height: 24),
-              
               // 再生速度
               Text(
                 '再生速度: ${_playbackSpeed.toStringAsFixed(1)}x',
@@ -186,9 +162,9 @@ void _showLyricsFullScreen(BuildContext context) {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              _dominantColor?.withValues(alpha: 0.9) ?? Colors.black,
-              _dominantColor?.withValues(alpha: 0.6) ?? Colors.black,
-              Colors.black,
+              const Color(0xFF81C784).withValues(alpha: 0.9),
+              const Color(0xFF4A7C59).withValues(alpha: 0.7),
+              const Color(0xFF2D4A2B).withValues(alpha: 0.95),
             ],
             stops: const [0.0, 0.6, 1.0],
           ),
@@ -449,7 +425,39 @@ void _showAudioRoutePicker(BuildContext context) async {
                             ],
                           ),
                           
-                          SizedBox(height: isSmallScreen ? 20 : 30),
+                          SizedBox(height: isSmallScreen ? 10 : 20),
+                          
+                          // Volume Control
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Column(
+                              children: [
+                                Text(
+                                  '音量: ${(_volume * 100).toInt()}%',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.7),
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Slider(
+                                  value: _volume,
+                                  min: 0.0,
+                                  max: 1.0,
+                                  divisions: 20,
+                                  activeColor: Colors.white,
+                                  inactiveColor: Colors.white.withValues(alpha: 0.3),
+                                  onChanged: (value) {
+                                    setState(() => _volume = value);
+                                    ref.read(audioPlayerProvider.notifier).player.setVolume(value);
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          
+                          SizedBox(height: isSmallScreen ? 10 : 20),
                           
                           // Output Button (iOS only)
                           if (Platform.isIOS)

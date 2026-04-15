@@ -162,7 +162,7 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
   StreamSubscription<PlayerState>? _playerStateSubscription;
   StreamSubscription<int?>? _currentIndexSubscription;
 
-  
+    
   AudioPlayer get player => _player;
 
   AudioPlayerNotifier() : super(const AudioPlayerState()) {
@@ -811,8 +811,8 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
   Future<void> _initEqualizer() async {
     if (Platform.isWindows) return;
     try {
-      // For now, just mark as enabled - actual EQ implementation 
-      // would require platform-specific audio processing
+      // Initialize equalizer - for now just mark as enabled
+      // Actual audio effect implementation would require platform-specific APIs
       await _applyEqualizerSettings();
     } catch (e) {
       state = state.copyWith(
@@ -825,9 +825,9 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
     if (Platform.isWindows) return;
     
     try {
-      // TODO: Implement actual equalizer using platform-specific APIs
-      // For now, we just store the settings in state
-      // This would require integration with platform audio effects
+      // Store equalizer settings in state
+      // Future implementation would apply these to actual audio effects
+      // For now, the UI will show the selected values but no audio change occurs
     } catch (e) {
       state = state.copyWith(
         errorMessage: 'Failed to apply equalizer settings: $e',

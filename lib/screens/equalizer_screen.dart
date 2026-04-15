@@ -136,21 +136,16 @@ class EqualizerScreen extends ConsumerWidget {
       padding: const EdgeInsets.all(24.0),
       child: Column(
         children: [
-          // Preset buttons - 1行目
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          // Preset buttons
+          Wrap(
+            spacing: 12.0,
+            runSpacing: 12.0,
+            alignment: WrapAlignment.center,
             children: [
               _buildPresetButton('Flat', notifier, [0.0, 0.0, 0.0, 0.0, 0.0]),
               _buildPresetButton('Bass', notifier, [8.0, 5.0, 2.0, 0.0, -2.0]),
               _buildPresetButton('Vocal', notifier, [-3.0, 1.0, 4.0, 3.0, 1.0]),
               _buildPresetButton('Rock', notifier, [5.0, 3.0, -1.0, 2.0, 4.0]),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // Preset buttons - 2行目（新規追加）
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
               _buildPresetButton('Super Vocal', notifier, [-5.0, -2.0, 6.0, 8.0, 7.0]),
               _buildPresetButton('Acoustic', notifier, [2.0, 4.0, 6.0, 5.0, 3.0]),
               _buildPresetButton('Deep Bass', notifier, [12.0, 8.0, 4.0, 0.0, -4.0]),

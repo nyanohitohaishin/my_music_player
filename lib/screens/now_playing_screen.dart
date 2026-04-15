@@ -24,6 +24,7 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
   double _volume = 1.0;
   Color _dominantColor = const Color(0xFF81C784);
   final ScrollController _scrollController = ScrollController();
+  bool _isStaticLyrics = false;
 
   Future<Color> _extractDominantColor(Uint8List? imageBytes) async {
     if (imageBytes == null) return const Color(0xFF81C784);
@@ -156,9 +157,25 @@ void _showLyricsFullScreen(BuildContext context) {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white),
-                  onPressed: () => Navigator.pop(context),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: Icon(
+                        _isStaticLyrics ? Icons.sync : Icons.notes,
+                        color: Colors.white,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _isStaticLyrics = !_isStaticLyrics;
+                        });
+                      },
+                      tooltip: _isStaticLyrics ? '動的歌詞に切り替え' : '静的歌詞に切り替え',
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -167,7 +184,7 @@ void _showLyricsFullScreen(BuildContext context) {
             Expanded(
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 20),
-                child: const LyricView(),
+                child: _isStaticLyrics ? _buildStaticLyrics() : const LyricView(),
               ),
             ),
           ],
@@ -176,6 +193,43 @@ void _showLyricsFullScreen(BuildContext context) {
     ),
   );
 }
+
+  Widget _buildStaticLyrics() {
+    final playerState = ref.read(audioPlayerProvider);
+    final lyrics = playerState.currentSong?.lyrics ?? [];
+    
+    if (lyrics.isEmpty) {
+      return const Center(
+        child: Text(
+          '歌詞がありません',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.7),
+            fontSize: 18,
+          ),
+        ),
+      );
+    }
+    
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: lyrics.map((lyric) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              lyric.text.isEmpty ? '・' : lyric.text,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                height: 1.6,
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
 
 void _showAudioRoutePicker(BuildContext context) async {
     try {

@@ -195,7 +195,7 @@ class _MiniPlayerWithProgressState extends State<MiniPlayerWithProgress> {
                   builder: (context, snapshot) {
                     final position = snapshot.data ?? Duration.zero;
                     final progress = widget.duration!.inMilliseconds > 0 
-                        ? position.inMilliseconds / widget.duration!.inMilliseconds 
+                        ? (position.inMilliseconds / widget.duration!.inMilliseconds).clamp(0.0, 1.0)
                         : 0.0;
                     
                     return LinearProgressIndicator(

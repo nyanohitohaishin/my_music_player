@@ -41,7 +41,7 @@ class _LyricViewState extends ConsumerState<LyricView> {
     final currentIndex = playerState.currentLyricIndex;
 
     // ハイライト行が変わったらスクロール
-    if (currentIndex != _lastHighlightedIndex && currentIndex >= 0) {
+    if (currentIndex != _lastHighlightedIndex && currentIndex >= 0 && currentIndex < lyrics.length) {
       _lastHighlightedIndex = currentIndex;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _scrollToCurrentLyric(currentIndex, lyrics.length);
@@ -99,6 +99,7 @@ class _LyricViewState extends ConsumerState<LyricView> {
   /// インデックスに応じて行の表示状態を返す
   _LyricLineState _getLineState(int index, int currentIndex) {
     if (currentIndex < 0) return _LyricLineState.normal;
+    if (index < 0) return _LyricLineState.normal;
     if (index == currentIndex) return _LyricLineState.highlighted;
     if ((index - currentIndex).abs() <= 1) return _LyricLineState.near;
     return _LyricLineState.normal;

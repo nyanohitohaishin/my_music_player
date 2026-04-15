@@ -121,63 +121,54 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Row(
               children: [
-                FilterChip(
-                  label: const Text('すべて'),
+                ChoiceChip(
+                  label: const Text(''),
                   selected: _filterMode == FilterMode.all,
                   onSelected: (selected) {
                     if (selected) setState(() => _filterMode = FilterMode.all);
                   },
-                  backgroundColor: AppColors.surfaceVariant,
+                  backgroundColor: Colors.transparent,
                   selectedColor: AppColors.accent,
                   labelStyle: TextStyle(
-                    color: _filterMode == FilterMode.all ? Colors.white : AppColors.textSecondary,
-                    fontWeight: FontWeight.w500,
+                    color: _filterMode == FilterMode.all ? Colors.black : Colors.white,
+                    fontWeight: FontWeight.w600,
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                    side: BorderSide(
-                      color: _filterMode == FilterMode.all ? Colors.transparent : AppColors.surfaceVariant,
-                    ),
+                  shape: const StadiumBorder(
+                    side: BorderSide(color: Colors.white54),
                   ),
                 ),
                 const SizedBox(width: 8),
-                FilterChip(
-                  label: const Text('お気に入り'),
+                ChoiceChip(
+                  label: const Text(''),
                   selected: _filterMode == FilterMode.favorites,
                   onSelected: (selected) {
                     if (selected) setState(() => _filterMode = FilterMode.favorites);
                   },
-                  backgroundColor: AppColors.surfaceVariant,
+                  backgroundColor: Colors.transparent,
                   selectedColor: AppColors.accent,
                   labelStyle: TextStyle(
-                    color: _filterMode == FilterMode.favorites ? Colors.white : AppColors.textSecondary,
-                    fontWeight: FontWeight.w500,
+                    color: _filterMode == FilterMode.favorites ? Colors.black : Colors.white,
+                    fontWeight: FontWeight.w600,
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                    side: BorderSide(
-                      color: _filterMode == FilterMode.favorites ? Colors.transparent : AppColors.surfaceVariant,
-                    ),
+                  shape: const StadiumBorder(
+                    side: BorderSide(color: Colors.white54),
                   ),
                 ),
                 const SizedBox(width: 8),
-                FilterChip(
-                  label: const Text('プレイリスト'),
+                ChoiceChip(
+                  label: const Text(''),
                   selected: _filterMode == FilterMode.playlists,
                   onSelected: (selected) {
                     if (selected) setState(() => _filterMode = FilterMode.playlists);
                   },
-                  backgroundColor: AppColors.surfaceVariant,
+                  backgroundColor: Colors.transparent,
                   selectedColor: AppColors.accent,
                   labelStyle: TextStyle(
-                    color: _filterMode == FilterMode.playlists ? Colors.white : AppColors.textSecondary,
-                    fontWeight: FontWeight.w500,
+                    color: _filterMode == FilterMode.playlists ? Colors.black : Colors.white,
+                    fontWeight: FontWeight.w600,
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                    side: BorderSide(
-                      color: _filterMode == FilterMode.playlists ? Colors.transparent : AppColors.surfaceVariant,
-                    ),
+                  shape: const StadiumBorder(
+                    side: BorderSide(color: Colors.white54),
                   ),
                 ),
               ],
@@ -458,7 +449,7 @@ class _PlaylistViewWithMenu extends ConsumerWidget {
         final isCurrentSong = index == currentSongIndex;
 
         return ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           leading: SizedBox(
             width: 56,
             height: 56,
@@ -485,20 +476,20 @@ class _PlaylistViewWithMenu extends ConsumerWidget {
                 song.title,
                 style: const TextStyle(
                   color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.bold,
                   fontSize: 16,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               Row(
                 children: [
                   Text(
                     song.artist,
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 14,
+                    style: TextStyle(
+                      color: Colors.grey.withValues(alpha: 0.7),
+                      fontSize: 13,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

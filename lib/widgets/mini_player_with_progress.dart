@@ -4,10 +4,11 @@
 // ============================================================
 
 import 'package:flutter/material.dart';
+import 'package:palette_generator/palette_generator.dart';
 
 import '../theme/app_theme.dart';
 
-class MiniPlayerWithProgress extends StatelessWidget {
+class MiniPlayerWithProgress extends StatefulWidget {
   final dynamic currentSong; // Song?
   final bool isPlaying;
   final VoidCallback onTap;
@@ -25,6 +26,48 @@ class MiniPlayerWithProgress extends StatelessWidget {
   });
 
   @override
+  State<MiniPlayerWithProgress> createState() => _MiniPlayerWithProgressState();
+}
+
+class _MiniPlayerWithProgressState extends State<MiniPlayerWithProgress> {
+  Color _dominantColor = AppColors.surfaceVariant;
+
+  @override
+  void initState() {
+    super.initState();
+    _extractDominantColor();
+  }
+
+  @override
+  void didUpdateWidget(MiniPlayerWithProgress oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.currentSong?.albumArt != widget.currentSong?.albumArt) {
+      _extractDominantColor();
+    }
+  }
+
+  Future<void> _extractDominantColor() async {
+    if (widget.currentSong?.albumArt != null) {
+      try {
+        final palette = await PaletteGenerator.fromImageProvider(
+          MemoryImage(widget.currentSong!.albumArt!),
+        );
+        if (mounted) {
+          setState(() {
+            _dominantColor = palette.dominantColor?.color ?? AppColors.surfaceVariant;
+          });
+        }
+      } catch (e) {
+        // Fallback to default color
+      }
+    } else {
+      setState(() {
+        _dominantColor = AppColors.surfaceVariant;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
@@ -32,71 +75,105 @@ class MiniPlayerWithProgress extends StatelessWidget {
         children: [
           // Main content
           Container(
-            margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             decoration: BoxDecoration(
-              color: AppColors.surfaceVariant,
-              borderRadius: BorderRadius.circular(12),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  _dominantColor,
+                  _dominantColor.withValues(alpha: 0.8),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(16),
             ),
             child: Row(
               children: [
                 // Mini album artwork
                 Container(
-                  width: 44,
-                  height: 44,
+                  width: 48,
+                  height: 48,
                   decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(6),
+                    color: Colors.white.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: currentSong?.albumArt != null
                       ? ClipRRect(
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(8),
                           child: Image.memory(
                             currentSong!.albumArt!,
-                            width: 44,
-                            height: 44,
+                            width: 48,
+                            height: 48,
                             fit: BoxFit.cover,
                             errorBuilder: (context, error, stackTrace) {
                               return const Icon(
                                 Icons.music_note_rounded,
-                                color: AppColors.textSecondary,
-                                size: 22,
+                                color: Colors.white,
+                                size: 24,
                               );
                             },
                           ),
                         )
                       : const Icon(
                           Icons.music_note_rounded,
-                          color: AppColors.textSecondary,
-                          size: 22,
+                          color: Colors.white,
+                          size: 24,
                         ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 16),
 
-                // Song title
+                // Song info
                 Expanded(
-                  child: Text(
-                    currentSong?.title ?? 'Unknown Song',
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Song title
+                      Text(
+                        currentSong?.title ?? 'Unknown Song',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      // Artist name
+                      Text(
+                        currentSong?.artist ?? 'Unknown Artist',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.7),
+                          fontWeight: FontWeight.w500,
+                          fontSize: 14,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
                 ),
 
-                // 再生・一時停止ボタン
-                IconButton(
-                  icon: Icon(
-                    isPlaying
-                        ? Icons.pause_circle_filled_rounded
-                        : Icons.play_circle_filled_rounded,
-                    size: 36,
+                const SizedBox(width: 16),
+
+                // Play/Pause button
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
                   ),
-                  color: AppColors.textPrimary,
-                  onPressed: onPlayPause,
+                  child: IconButton(
+                    icon: Icon(
+                      isPlaying
+                          ? Icons.pause
+                          : Icons.play_arrow,
+                      size: 24,
+                    ),
+                    color: _dominantColor,
+                    onPressed: onPlayPause,
+                  ),
                 ),
               ],
             ),
@@ -108,23 +185,29 @@ class MiniPlayerWithProgress extends StatelessWidget {
               bottom: 0,
               left: 0,
               right: 0,
-              child: StreamBuilder<Duration>(
-                stream: positionStream!,
-                builder: (context, snapshot) {
-                  final position = snapshot.data ?? Duration.zero;
-                  final progress = duration!.inMilliseconds > 0 
-                      ? position.inMilliseconds / duration!.inMilliseconds 
-                      : 0.0;
-                  
-                  return LinearProgressIndicator(
-                    value: progress,
-                    minHeight: 2,
-                    backgroundColor: AppColors.surfaceVariant,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      AppColors.accent,
-                    ),
-                  );
-                },
+              child: ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(16),
+                  bottomRight: Radius.circular(16),
+                ),
+                child: StreamBuilder<Duration>(
+                  stream: positionStream!,
+                  builder: (context, snapshot) {
+                    final position = snapshot.data ?? Duration.zero;
+                    final progress = duration!.inMilliseconds > 0 
+                        ? position.inMilliseconds / duration!.inMilliseconds 
+                        : 0.0;
+                    
+                    return LinearProgressIndicator(
+                      value: progress,
+                      minHeight: 2,
+                      backgroundColor: Colors.white.withValues(alpha: 0.2),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Colors.white,
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
         ],

@@ -21,7 +21,8 @@ class NowPlayingScreen extends ConsumerStatefulWidget {
 class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
   double _playbackSpeed = 1.0;
   double _pitch = 0.0;
-  Color? _dominantColor;
+  Color _dominantColor = AppColors.background;
+  final ScrollController _scrollController = ScrollController();
 
   Future<Color> _extractDominantColor(Uint8List? imageBytes) async {
     if (imageBytes == null) return AppColors.background;
@@ -475,38 +476,49 @@ void _showAudioRoutePicker(BuildContext context) async {
                         ),
                         const SizedBox(height: 8),
                         SizedBox(
-                          height: 60,
+                          height: 150,
                           child: StreamBuilder<Duration>(
                             stream: ref.read(audioPlayerProvider.notifier).positionStream,
                             builder: (context, snapshot) {
                               final position = snapshot.data ?? Duration.zero;
                               final currentIndex = _getCurrentLyricIndex(currentSong.lyrics, position);
                               
+                              // Auto-scroll to current lyric
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (currentIndex > 0 && currentIndex < currentSong.lyrics.length) {
+                                  _scrollController.animateTo(
+                                    currentIndex * 30.0, // item height
+                                    duration: const Duration(milliseconds: 300),
+                                    curve: Curves.easeInOut,
+                                  );
+                                }
+                              });
+                              
                               return ListView.builder(
-                                physics: const NeverScrollableScrollPhysics(),
+                                physics: const ClampingScrollPhysics(),
+                                controller: _scrollController,
                                 itemCount: currentSong.lyrics.length,
-                                controller: ScrollController(),
-                                scrollDirection: Axis.vertical,
-                                itemExtent: 20,
+                                itemExtent: 30,
                                 itemBuilder: (context, index) {
                                   final lyric = currentSong.lyrics[index];
                                   final isCurrent = index == currentIndex;
-                                  final isNear = (index - currentIndex).abs() <= 1;
                                   
-                                  if (index < currentIndex - 1 || index > currentIndex + 2) {
+                                  // Show only lyrics around current position
+                                  if (index < currentIndex - 2 || index > currentIndex + 3) {
                                     return const SizedBox.shrink();
                                   }
                                   
                                   return Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 2),
+                                    padding: const EdgeInsets.symmetric(vertical: 4),
                                     child: Text(
                                       lyric.text,
                                       style: TextStyle(
                                         color: isCurrent 
                                             ? Colors.white 
-                                            : Colors.white.withValues(alpha: 0.5),
-                                        fontSize: isCurrent ? 14 : 12,
-                                        fontWeight: isCurrent ? FontWeight.w600 : FontWeight.normal,
+                                            : Colors.white.withValues(alpha: 0.4),
+                                        fontSize: isCurrent ? 16 : 14,
+                                        fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                                        height: 1.2,
                                       ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,

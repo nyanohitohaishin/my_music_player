@@ -197,20 +197,7 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
 
   Future<void> _initAudioSession() async {
     final session = await AudioSession.instance;
-    await session.configure(
-      AudioSessionConfiguration.music(
-        androidAudioAttributes: const AndroidAudioAttributes(
-          contentType: AndroidAudioContentType.music,
-          usage: AndroidAudioUsage.media,
-          flags: [AndroidAudioFlags.noMediaProjection],
-        ),
-        androidAudioFocusGainType: AndroidAudioFocusGainType.gainTransientMayDuck,
-        avAudioSessionCategoryOptions: AVAudioSessionCategoryOptions.allowBluetooth | 
-                                     AVAudioSessionCategoryOptions.allowBluetoothA2DP |
-                                     AVAudioSessionCategoryOptions.allowAirPlay,
-        avAudioSessionMode: AVAudioSessionMode.defaultMode,
-      ),
-    );
+    await session.configure(const AudioSessionConfiguration.music());
   }
 
   void _subscribeToPlayerStreams() {

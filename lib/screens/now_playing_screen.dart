@@ -125,69 +125,71 @@ void _showLyricsFullScreen(BuildContext context) {
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
-    builder: (context) => DraggableScrollableSheet(
-      initialChildSize: 0.9,
-      maxChildSize: 1.0,
-      minChildSize: 0.5,
-      builder: (context, scrollController) => Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              const Color(0xFF81C784),
-              const Color(0xFF4A7C59),
-              const Color(0xFF2D4A2B),
-            ],
-            stops: const [0.0, 0.6, 1.0],
-          ),
-        ),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            // ヘッダー
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  '歌詞',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Row(
-                  children: [
-                    IconButton(
-                      icon: Icon(
-                        _isStaticLyrics ? Icons.sync : Icons.notes,
-                        color: Colors.white,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _isStaticLyrics = !_isStaticLyrics;
-                        });
-                      },
-                      tooltip: _isStaticLyrics ? '動的歌詞に切り替え' : '静的歌詞に切り替え',
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
+    builder: (context) => StatefulBuilder(
+      builder: (context, modalSetState) => DraggableScrollableSheet(
+        initialChildSize: 0.9,
+        maxChildSize: 1.0,
+        minChildSize: 0.5,
+        builder: (context, scrollController) => Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                const Color(0xFF81C784),
+                const Color(0xFF4A7C59),
+                const Color(0xFF2D4A2B),
               ],
+              stops: const [0.0, 0.6, 1.0],
             ),
-            const SizedBox(height: 20),
-            // 歌詞全文
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 20),
-                child: _isStaticLyrics ? _buildStaticLyrics() : const LyricView(),
+          ),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              // ヘッダー
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    '歌詞',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          _isStaticLyrics ? Icons.sync : Icons.text_snippet,
+                          color: Colors.white,
+                        ),
+                        onPressed: () {
+                          modalSetState(() {
+                            _isStaticLyrics = !_isStaticLyrics;
+                          });
+                        },
+                        tooltip: _isStaticLyrics ? '動的歌詞に切り替え' : '静的歌詞に切り替え',
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: 20),
+              // 
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: _isStaticLyrics ? _buildStaticLyrics() : const LyricView(),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     ),
@@ -387,7 +389,9 @@ void _showAudioRoutePicker(BuildContext context) async {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  currentSong.artist.isEmpty ? 'Mrs. GREEN APPLE' : currentSong.artist,
+                                  currentSong.artist == null || currentSong.artist.isEmpty || currentSong.artist == 'Unknown Artist' 
+                                  ? 'Mrs. GREEN APPLE' 
+                                  : currentSong.artist,
                                   style: TextStyle(
                                     color: Colors.white.withValues(alpha: 0.7),
                                     fontSize: 18,

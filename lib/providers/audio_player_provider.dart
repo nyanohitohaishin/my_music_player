@@ -14,7 +14,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:path/path.dart' as p;
-import 'package:metadata_god/metadata_god.dart'; // ✅ audiotags から変更
+import 'package:path_provider/path_provider.dart';
+import 'package:metadata_god/metadata_god.dart'; // audiotags から変更
 import 'package:uuid/uuid.dart';
 
 import '../models/lyric_line.dart';
@@ -138,6 +139,32 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
   final DatabaseHelper _dbHelper = DatabaseHelper();
 
   StreamSubscription<Duration>? _positionSubscription;
+
+  /// Copy file to app's local directory and return the new path
+  Future<String> _copyFileToLocalDirectory(String sourcePath) async {
+    final sourceFile = File(sourcePath);
+    if (!await sourceFile.exists()) {
+      throw Exception('Source file does not exist: $sourcePath');
+    }
+
+    final appDir = await getApplicationDocumentsDirectory();
+    final fileName = p.basename(sourcePath);
+    final localPath = p.join(appDir.path, fileName);
+    
+    // If file already exists, generate unique name
+    final localFile = File(localPath);
+    if (await localFile.exists()) {
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final nameWithoutExt = p.basenameWithoutExtension(localPath);
+      final extension = p.extension(localPath);
+      final uniquePath = p.join(appDir.path, '${nameWithoutExt}_$timestamp$extension');
+      await sourceFile.copy(uniquePath);
+      return uniquePath;
+    } else {
+      await sourceFile.copy(localPath);
+      return localPath;
+    }
+  }
   StreamSubscription<Duration?>? _durationSubscription;
   StreamSubscription<PlayerState>? _playerStateSubscription;
   StreamSubscription<int?>? _currentIndexSubscription;
@@ -295,9 +322,12 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
 
       for (final file in result.files) {
         if (file.path == null) continue;
-        var song = await _createSongFromMetadata(file.path!);
         
-        final albumArt = await _extractAlbumArt(file.path!);
+        // Copy file to local directory first
+        final localPath = await _copyFileToLocalDirectory(file.path!);
+        var song = await _createSongFromMetadata(localPath);
+        
+        final albumArt = await _extractAlbumArt(localPath);
         if (albumArt != null) song = song.copyWithAlbumArt(albumArt);
         
         await _dbHelper.insertOrUpdateSong(song);
@@ -757,13 +787,16 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
   
   Future<void> updateSongLrcPath(String songId, String lrcPath) async {
     try {
-      await _dbHelper.updateSongLrcPath(songId, lrcPath);
-      final lyrics = await _parseLrcFile(lrcPath);
+      // Copy LRC file to local directory first
+      final localLrcPath = await _copyFileToLocalDirectory(lrcPath);
+      
+      await _dbHelper.updateSongLrcPath(songId, localLrcPath);
+      final lyrics = await _parseLrcFile(localLrcPath);
       
       final updatedPlaylist = state.playlist.map<Song>((song) {
         if (song.id == songId) {
           return song.copyWith(
-            lrcPath: lrcPath,
+            lrcPath: localLrcPath,
             lyrics: lyrics,
           );
         }

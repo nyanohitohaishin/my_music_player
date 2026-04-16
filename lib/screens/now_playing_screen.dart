@@ -199,7 +199,7 @@ void _showLyricsFullScreen(BuildContext context) {
     final lyrics = playerState.currentSong?.lyrics ?? [];
     
     if (lyrics.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           '歌詞がありません',
           style: TextStyle(

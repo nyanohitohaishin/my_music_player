@@ -211,7 +211,24 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
         final songsWithArtwork = await Future.wait(savedSongs.map((song) async {
           final fullPath = await _getFullPath(song.filePath);
           final albumArt = await _extractAlbumArt(fullPath);
-          return albumArt != null ? song.copyWithAlbumArt(albumArt) : song;
+
+          // Add missing lyrics restoration processing
+          List<LyricLine>? parsedLyrics;
+          if (song.lrcPath != null && song.lrcPath!.isNotEmpty) {
+            final lrcFullPath = await _getFullPath(song.lrcPath!);
+            parsedLyrics = await _parseLrcFile(lrcFullPath);
+          }
+
+          var updatedSong = song;
+          if (albumArt != null) {
+            updatedSong = updatedSong.copyWithAlbumArt(albumArt);
+          }
+          if (parsedLyrics != null && parsedLyrics.isNotEmpty) {
+            updatedSong = updatedSong.copyWith(
+              lyrics: parsedLyrics,
+            );
+          }
+          return updatedSong;
         }));
         
         state = state.copyWith(

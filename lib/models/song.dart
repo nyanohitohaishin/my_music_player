@@ -54,12 +54,14 @@ class Song {
   factory Song.fromPath(String filePath) {
     // pathパッケージを使って拡張子を除いたファイル名を取得
     final titleWithoutExtension = p.basenameWithoutExtension(filePath);
+    // Safeguard: Always extract filename only, never store absolute paths
+    final String fileName = p.basename(filePath);
 
     return Song(
       id: const Uuid().v4(),
       title: titleWithoutExtension,
       artist: 'Unknown Artist',
-      filePath: filePath,
+      filePath: fileName, // Ensure only filename is saved
     );
   }
 

@@ -320,17 +320,19 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
       
       final String title = p.basenameWithoutExtension(absolutePath);
       final String artist = metadata.artist ?? 'Unknown Artist';
-      final String fileName = p.basename(absolutePath); // Extract filename only
+      // Safeguard: Always extract filename only, never store absolute paths
+      final String fileName = p.basename(absolutePath);
 
       return Song(
         id: const Uuid().v4(),
         title: title,
         artist: artist,
-        filePath: fileName, // Save only filename
+        filePath: fileName, // CRITICAL: Always save only filename, never absolute path
       );
     } catch (e) {
-      final String fileName = p.basename(absolutePath); // Extract filename only
-      return Song.fromPath(fileName); // Save only filename
+      // Safeguard: Always extract filename only, never store absolute paths
+      final String fileName = p.basename(absolutePath);
+      return Song.fromPath(fileName); // Ensure only filename is saved
     }
   }
 
@@ -839,7 +841,7 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
       final updatedPlaylist = state.playlist.map<Song>((song) {
         if (song.id == songId) {
           return song.copyWith(
-            lrcPath: lrcFileName, // Save only filename
+            lrcPath: lrcFileName, // Ensure only filename is saved
             lyrics: lyrics,
           );
         }

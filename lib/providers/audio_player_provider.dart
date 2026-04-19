@@ -483,6 +483,7 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
         } catch (e) {
           // 
           print('[pickAndLoadSong] Group error (${entry.key}): $e');
+          state = state.copyWith(errorMessage: '追加エラー (${entry.key}): $e');
         }
       }
 

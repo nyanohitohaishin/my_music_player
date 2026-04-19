@@ -39,6 +39,19 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     final playlist = playerState.playlist;
     final currentSongIndex = playerState.currentSongIndex;
 
+    // 
+    ref.listen<AudioPlayerState>(audioPlayerProvider, (previous, next) {
+      if (next.errorMessage != null && next.errorMessage != previous?.errorMessage) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(next.errorMessage!),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    });
+
     List<Song> displaySongs = [];
     if (_filterMode != FilterMode.playlists) {
       displaySongs = playlist.where((song) {

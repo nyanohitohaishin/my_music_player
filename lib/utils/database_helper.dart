@@ -185,6 +185,29 @@ class DatabaseHelper {
     );
   }
 
+  Future<List<Song>> getPlaylistSongs(String playlistId) async {
+    final db = await database;
+    final maps = await db.rawQuery('''
+      SELECT s.* FROM songs s
+      INNER JOIN playlist_songs ps ON s.id = ps.song_id
+      WHERE ps.playlist_id = ?
+      ORDER BY ps.position ASC
+    ''', [playlistId]);
+    return maps.map((m) => Song.fromMap(m)).toList();
+  }
+
+  Future<void> removeSongFromPlaylist(String songId, String playlistId) async {
+    final db = await database;
+    await db.delete('playlist_songs',
+        where: 'song_id = ? AND playlist_id = ?',
+        whereArgs: [songId, playlistId]);
+  }
+
+  Future<void> deletePlaylist(String playlistId) async {
+    final db = await database;
+    await db.delete('playlists', where: 'id = ?', whereArgs: [playlistId]);
+  }
+
   // ──────────────────────────────────────────────────────────
   // 再生履歴
   // ──────────────────────────────────────────────────────────
@@ -195,6 +218,17 @@ class DatabaseHelper {
       'song_id': songId,
       'played_at': DateTime.now().toIso8601String(),
     });
+  }
+
+  Future<List<Song>> getRecentPlayHistory({int limit = 20}) async {
+    final db = await database;
+    final maps = await db.rawQuery('''
+      SELECT s.* FROM play_history ph
+      INNER JOIN songs s ON ph.song_id = s.id
+      ORDER BY ph.played_at DESC
+      LIMIT ?
+    ''', [limit]);
+    return maps.map((m) => Song.fromMap(m)).toList();
   }
 
   /// ★ LRC ファイル名を DB に保存（ファイル名のみ、絶対パス禁止）
@@ -232,15 +266,42 @@ class DatabaseHelper {
         '(rows=$rowsAffected)');
   }
 
-  /// Update song's LRC file path
-  Future<void> updateSongLrcPath(String songId, String lrcPath) async {
+  /// Get song by file path
+  Future<Song?> getSongByFilePath(String filePath) async {
     final db = await database;
-    await db.update(
+    final List<Map<String, dynamic>> maps = await db.query(
       'songs',
-      {'lrcPath': lrcPath},
-      where: 'id = ?',
-      whereArgs: [songId],
+      where: 'file_path = ?',
+      whereArgs: [filePath],
+      limit: 1,
     );
+
+    if (maps.isNotEmpty) {
+      return Song.fromMap(maps.first);
+    }
+    return null;
+  }
+
+  /// Delete song by file path
+  Future<void> deleteSongByFilePath(String filePath) async {
+    final db = await database;
+    await db.delete(
+      'songs',
+      where: 'file_path = ?',
+      whereArgs: [filePath],
+    );
+  }
+
+  /// 指定された曲が、いずれかのプレイリストに登録されているかを確認する
+  Future<bool> isSongInAnyPlaylist(String songId) async {
+    final db = await database;
+    final result = await db.query(
+      'playlist_songs',
+      where: 'song_id = ?',
+      whereArgs: [songId],
+      limit: 1,
+    );
+    return result.isNotEmpty;
   }
 
   /// Close database

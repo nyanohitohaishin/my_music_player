@@ -871,9 +871,15 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
   int _getCurrentLyricIndex(List<LyricLine> lyrics, Duration position) {
     if (lyrics.isEmpty) return -1;
 
+    // lyricOffset 
+    final offsetMs = state.currentSong?.lyricOffset ?? 0;
+    final adjustedPosition = Duration(
+      milliseconds: (position.inMilliseconds + offsetMs).clamp(0, double.maxFinite.toInt()),
+    );
+
     int index = -1;
     for (int i = 0; i < lyrics.length; i++) {
-      if (lyrics[i].position <= position) {
+      if (lyrics[i].position <= adjustedPosition) {
         index = i;
       } else {
         break; 
@@ -910,6 +916,29 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
       state = state.copyWith(
         errorMessage: 'Failed to update LRC path: $e',
       );
+    }
+  }
+
+  /// 
+  Future<void> updateLyricOffset(String songId, int deltaMs) async {
+    try {
+      final songIndex = state.playlist.indexWhere((s) => s.id == songId);
+      if (songIndex == -1) return;
+
+      final currentOffset = state.playlist[songIndex].lyricOffset;
+      final newOffset = currentOffset + deltaMs;
+
+      // DB 
+      await _dbHelper.updateLyricOffset(songId, newOffset);
+
+      // state 
+      final updatedPlaylist = List<Song>.from(state.playlist);
+      updatedPlaylist[songIndex] =
+          updatedPlaylist[songIndex].copyWith(lyricOffset: newOffset);
+
+      state = state.copyWith(playlist: updatedPlaylist);
+    } catch (e) {
+      state = state.copyWith(errorMessage: 'Failed to update lyric offset: $e');
     }
   }
 

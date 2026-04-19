@@ -5,6 +5,7 @@
 
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:ui' show FontFeature;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:audio_video_progress_bar/audio_video_progress_bar.dart';
@@ -661,8 +662,15 @@ class _FullScreenLyricsSheetState
 
   @override
   Widget build(BuildContext context) {
-    final song = ref.watch(audioPlayerProvider).currentSong;
+    final playerState = ref.watch(audioPlayerProvider);
+    final notifier = ref.read(audioPlayerProvider.notifier);
+    final song = playerState.currentSong;
     final lyrics = song?.lyrics ?? [];
+
+    // 
+    final offsetMs = song?.lyricOffset ?? 0;
+    final offsetSec = (offsetMs / 1000.0).toStringAsFixed(1);
+    final offsetLabel = offsetMs >= 0 ? '+${offsetSec}s' : '${offsetSec}s';
 
     return Column(
       children: [
@@ -684,6 +692,7 @@ class _FullScreenLyricsSheetState
           padding: const EdgeInsets.fromLTRB(24, 0, 8, 8),
           child: Row(
             children: [
+              // 
               Expanded(
                 child: Text(
                   song?.title ?? '',
@@ -697,9 +706,97 @@ class _FullScreenLyricsSheetState
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              // ★ 動的 ⇔ 静的 トグル
+
+              // 
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // -0.5// -0.5
+                  Tooltip(
+                    message: '',
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 36,
+                        minHeight: 36,
+                      ),
+                      icon: const Icon(
+                        Icons.remove_circle_outline,
+                        color: Colors.white54,
+                        size: 20,
+                      ),
+                      onPressed: song == null
+                          ? null
+                          : () => notifier.updateLyricOffset(song.id, -500),
+                    ),
+                  ),
+
+                  // 
+                  Tooltip(
+                    message: '',
+                    child: GestureDetector(
+                      onTap: song == null
+                          ? null
+                          : () {
+                              //
+                              final current = song.lyricOffset;
+                              if (current != 0) {
+                                notifier.updateLyricOffset(song.id, -current);
+                              }
+                            },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: offsetMs != 0
+                              ? Colors.white.withValues(alpha: 0.12)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          offsetLabel,
+                          style: TextStyle(
+                            // 
+                            color: offsetMs != 0
+                                ? Colors.white70
+                                : Colors.white30,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            fontFeatures: const [
+                              FontFeature.tabularFigures()
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // +0.5
+                  Tooltip(
+                    message: '',
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 36,
+                        minHeight: 36,
+                      ),
+                      icon: const Icon(
+                        Icons.add_circle_outline,
+                        color: Colors.white54,
+                        size: 20,
+                      ),
+                      onPressed: song == null
+                          ? null
+                          : () => notifier.updateLyricOffset(song.id, 500),
+                    ),
+                  ),
+                ],
+              ),
+              // 
+
+              // 
               Tooltip(
-                message: _isStaticMode ? '動的歌詞に切り替え' : '静的歌詞に切り替え',
+                message: _isStaticMode ? '' : '',
                 child: IconButton(
                   icon: Icon(
                     _isStaticMode ? Icons.sync : Icons.text_snippet,
@@ -710,6 +807,8 @@ class _FullScreenLyricsSheetState
                       setState(() => _isStaticMode = !_isStaticMode),
                 ),
               ),
+
+              // 
               IconButton(
                 icon: const Icon(Icons.keyboard_arrow_down,
                     color: Colors.white38, size: 28),

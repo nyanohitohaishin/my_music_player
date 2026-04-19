@@ -18,6 +18,9 @@ class DatabaseHelper {
   static Database? _database;
   final Uuid _uuid = const Uuid();
 
+  // ★ バージョンを 2 に上げることで既存DBに onUpgrade が走る
+  static const int _dbVersion = 2;
+
   /// Get database instance
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -32,7 +35,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: _dbVersion,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -40,15 +43,16 @@ class DatabaseHelper {
 
   /// Create database tables
   Future<void> _onCreate(Database db, int version) async {
-    // Songs table
+    // ★ songs テーブル: lrc_path と lyric_offset を最初から定義
     await db.execute('''
-      CREATE TABLE songs (
-        id TEXT PRIMARY KEY,
-        filePath TEXT UNIQUE NOT NULL,
-        title TEXT NOT NULL,
-        artist TEXT NOT NULL,
-        isFavorite INTEGER DEFAULT 0,
-        createdAt INTEGER DEFAULT (strftime('%s', 'now'))
+      CREATE TABLE IF NOT EXISTS songs (
+        id           TEXT    PRIMARY KEY,
+        title        TEXT    NOT NULL,
+        artist       TEXT,
+        file_path    TEXT    NOT NULL,
+        lrc_path     TEXT,
+        is_favorite  INTEGER NOT NULL DEFAULT 0,
+        lyric_offset INTEGER NOT NULL DEFAULT 0
       )
     ''');
 
@@ -92,260 +96,140 @@ class DatabaseHelper {
     await db.execute('CREATE INDEX idx_play_history_playedAt ON play_history(playedAt)');
   }
 
-  /// Handle database upgrades
+  /// ★ 既存 DB (v1) に新カラムを追加するマイグレーション
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Handle future database schema upgrades here
-  }
-
-  /// Insert or update a song
-  Future<String> insertOrUpdateSong(Song song) async {
-    final db = await database;
-    
-    // Check if song already exists by filePath
-    final existing = await db.query(
-      'songs',
-      where: 'filePath = ?',
-      whereArgs: [song.filePath],
-      limit: 1,
-    );
-
-    if (existing.isNotEmpty) {
-      // Update existing song
-      await db.update(
-        'songs',
-        {
-          'title': song.title,
-          'artist': song.artist,
-          'isFavorite': song.isFavorite ? 1 : 0,
-        },
-        where: 'filePath = ?',
-        whereArgs: [song.filePath],
-      );
-      return existing.first['id'] as String;
-    } else {
-      // Insert new song
-      final songId = _uuid.v4();
-      await db.insert('songs', {
-        'id': songId,
-        'filePath': song.filePath,
-        'title': song.title,
-        'artist': song.artist,
-        'isFavorite': song.isFavorite ? 1 : 0,
-      });
-      return songId;
+    // v1 → v2: lrc_path と lyric_offset を追加
+    if (oldVersion < 2) {
+      // カラムが既に存在する場合は例外を無視する
+      try {
+        await db.execute('ALTER TABLE songs ADD COLUMN lrc_path TEXT');
+      } catch (_) {}
+      try {
+        await db.execute(
+            'ALTER TABLE songs ADD COLUMN lyric_offset INTEGER NOT NULL DEFAULT 0');
+      } catch (_) {}
     }
   }
 
-  /// Get all songs from database
-  Future<List<Song>> getAllSongs() async {
+  /// 挿入 or 上書き保存（song.toMap() 経由で全カラムを保存）
+  Future<void> insertOrUpdateSong(Song song) async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'songs',
-      orderBy: 'createdAt DESC',
-    );
-
-    return List.generate(maps.length, (i) {
-      return Song.fromMap(maps[i]);
-    });
-  }
-
-  /// Get favorite songs
-  Future<List<Song>> getFavoriteSongs() async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'songs',
-      where: 'isFavorite = ?',
-      whereArgs: [1],
-      orderBy: 'createdAt DESC',
-    );
-
-    return List.generate(maps.length, (i) {
-      return Song.fromMap(maps[i]);
-    });
-  }
-
-  /// Search songs by title or artist
-  Future<List<Song>> searchSongs(String query) async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'songs',
-      where: 'title LIKE ? OR artist LIKE ?',
-      whereArgs: ['%$query%', '%$query%'],
-      orderBy: 'createdAt DESC',
-    );
-
-    return List.generate(maps.length, (i) {
-      return Song.fromMap(maps[i]);
-    });
-  }
-
-  /// Toggle favorite status
-  Future<void> toggleFavorite(String songId) async {
-    final db = await database;
-    
-    // Get current favorite status
-    final result = await db.query(
-      'songs',
-      columns: ['isFavorite'],
-      where: 'id = ?',
-      whereArgs: [songId],
-      limit: 1,
-    );
-
-    if (result.isNotEmpty) {
-      final currentFavorite = result.first['isFavorite'] as int;
-      final newFavorite = currentFavorite == 0 ? 1 : 0;
-      
-      await db.update(
-        'songs',
-        {'isFavorite': newFavorite},
-        where: 'id = ?',
-        whereArgs: [songId],
-      );
-    }
-  }
-
-  /// Get song by file path
-  Future<Song?> getSongByFilePath(String filePath) async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'songs',
-      where: 'filePath = ?',
-      whereArgs: [filePath],
-      limit: 1,
-    );
-
-    if (maps.isNotEmpty) {
-      return Song.fromMap(maps.first);
-    }
-    return null;
-  }
-
-  /// Delete song by file path
-  Future<void> deleteSongByFilePath(String filePath) async {
-    final db = await database;
-    await db.delete(
-      'songs',
-      where: 'filePath = ?',
-      whereArgs: [filePath],
-    );
-  }
-
-  /// Delete song by ID
-  Future<void> deleteSong(String id) async {
-    final db = await database;
-    await db.delete(
-      'songs',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-  }
-
-  /// Create a new playlist
-  Future<String> createPlaylist(String name) async {
-    final db = await database;
-    final playlistId = _uuid.v4();
-    
-    await db.insert('playlists', {
-      'id': playlistId,
-      'name': name,
-    });
-    
-    return playlistId;
-  }
-
-  /// Get all playlists
-  Future<List<Map<String, dynamic>>> getAllPlaylists() async {
-    final db = await database;
-    return await db.query(
-      'playlists',
-      orderBy: 'createdAt DESC',
-    );
-  }
-
-  /// Add song to playlist
-  Future<void> addSongToPlaylist(String playlistId, String songId, {int? position}) async {
-    final db = await database;
-    
-    // Get current max position if not provided
-    if (position == null) {
-      final result = await db.rawQuery(
-        'SELECT MAX(position) as maxPos FROM playlist_songs WHERE playlistId = ?',
-        [playlistId],
-      );
-      position = (result.first['maxPos'] as int? ?? 0) + 1;
-    }
-    
-    await db.insert('playlist_songs', {
-      'playlistId': playlistId,
-      'songId': songId,
-      'position': position,
-    });
-  }
-
-  /// Get songs in playlist
-  Future<List<Song>> getPlaylistSongs(String playlistId) async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.rawQuery('''
-      SELECT s.*, ps.position FROM songs s
-      INNER JOIN playlist_songs ps ON s.id = ps.songId
-      WHERE ps.playlistId = ?
-      ORDER BY ps.position ASC
-    ''', [playlistId]);
-
-    return List.generate(maps.length, (i) {
-      return Song.fromMap(maps[i]);
-    });
-  }
-
-  /// Remove song from playlist
-  Future<void> removeSongFromPlaylist(String songId, String playlistId) async {
-    final db = await database;
-    await db.delete('playlist_songs', where: 'songId = ? AND playlistId = ?', whereArgs: [songId, playlistId]);
-  }
-
-  /// 指定された曲が、いずれかのプレイリストに登録されているかを確認する
-  Future<bool> isSongInAnyPlaylist(String songId) async {
-    final db = await database;
-    final result = await db.query(
-      'playlist_songs', 
-      where: 'songId = ?', 
-      whereArgs: [songId], 
-      limit: 1
-    );
-    return result.isNotEmpty;
-  }
-
-  /// 再生履歴を追加
-  Future<void> addPlayHistory(String songId, {int playDuration = 0}) async {
-    final db = await database;
-    final historyId = const Uuid().v4();
-    
     await db.insert(
-      'play_history',
-      {
-        'id': historyId,
-        'songId': songId,
-        'playedAt': DateTime.now().millisecondsSinceEpoch,
-        'playDuration': playDuration,
-      },
+      'songs',
+      song.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 
-  /// 最近再生した曲のリストを取得
-  Future<List<Song>> getRecentPlayHistory({int limit = 20}) async {
+  /// 全曲取得（lrc_path, lyric_offset を含む）
+  Future<List<Song>> getAllSongs() async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.rawQuery('''
-      SELECT s.* FROM play_history ph
-      INNER JOIN songs s ON ph.songId = s.id
-      ORDER BY ph.playedAt DESC
-      LIMIT ?
-    ''', [limit]);
+    final maps = await db.query('songs', orderBy: 'title ASC');
+    return maps.map((m) => Song.fromMap(m)).toList();
+  }
 
-    return List.generate(maps.length, (i) {
-      return Song.fromMap(maps[i]);
+  Future<List<Song>> getFavoriteSongs() async {
+    final db = await database;
+    final maps =
+        await db.query('songs', where: 'is_favorite = 1', orderBy: 'title ASC');
+    return maps.map((m) => Song.fromMap(m)).toList();
+  }
+
+  Future<List<Song>> searchSongs(String query) async {
+    final db = await database;
+    final maps = await db.query(
+      'songs',
+      where: 'title LIKE ? OR artist LIKE ?',
+      whereArgs: ['%$query%', '%$query%'],
+      orderBy: 'title ASC',
+    );
+    return maps.map((m) => Song.fromMap(m)).toList();
+  }
+
+  Future<void> toggleFavorite(String songId) async {
+    final db = await database;
+    await db.rawUpdate('''
+      UPDATE songs
+      SET    is_favorite = CASE WHEN is_favorite = 1 THEN 0 ELSE 1 END
+      WHERE  id = ?
+    ''', [songId]);
+  }
+
+  Future<void> deleteSong(String songId) async {
+    final db = await database;
+    await db.delete('songs', where: 'id = ?', whereArgs: [songId]);
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // CRUD: playlists
+  // ──────────────────────────────────────────────────────────
+
+  Future<String> createPlaylist(String name) async {
+    final db = await database;
+    final id = DateTime.now().millisecondsSinceEpoch.toString();
+    await db.insert('playlists', {'id': id, 'name': name});
+    return id;
+  }
+
+  Future<List<Map<String, dynamic>>> getAllPlaylists() async {
+    final db = await database;
+    return await db.query('playlists', orderBy: 'name ASC');
+  }
+
+  Future<void> addSongToPlaylist(String playlistId, String songId) async {
+    final db = await database;
+    await db.insert(
+      'playlist_songs',
+      {'playlist_id': playlistId, 'song_id': songId},
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // 再生履歴
+  // ──────────────────────────────────────────────────────────
+
+  Future<void> addPlayHistory(String songId) async {
+    final db = await database;
+    await db.insert('play_history', {
+      'song_id': songId,
+      'played_at': DateTime.now().toIso8601String(),
     });
+  }
+
+  /// ★ LRC ファイル名を DB に保存（ファイル名のみ、絶対パス禁止）
+  /// これが呼ばれていなかった、または SQL が間違っていたケースを修正
+  Future<void> updateSongLrcPath(String songId, String lrcFileName) async {
+    // 防衛的サニタイズ: 万が一フルパスが渡されてもファイル名だけに変換
+    final safeFileName = lrcFileName.split('/').last;
+
+    final db = await database;
+    final rowsAffected = await db.update(
+      'songs',
+      {'lrc_path': safeFileName},
+      where: 'id = ?',
+      whereArgs: [songId],
+    );
+
+    if (rowsAffected == 0) {
+      // 対象行が存在しない場合はログに残す（例外を投げてもよい）
+      print('[DB] updateSongLrcPath: no row found for id=$songId');
+    } else {
+      print('[DB] updateSongLrcPath: saved "$safeFileName" for id=$songId');
+    }
+  }
+
+  /// ★ 歌詞オフセット（ms）を DB に保存
+  Future<void> updateLyricOffset(String songId, int offsetMs) async {
+    final db = await database;
+    final rowsAffected = await db.update(
+      'songs',
+      {'lyric_offset': offsetMs},
+      where: 'id = ?',
+      whereArgs: [songId],
+    );
+    print('[DB] updateLyricOffset: offsetMs=$offsetMs for id=$songId '
+        '(rows=$rowsAffected)');
   }
 
   /// Update song's LRC file path

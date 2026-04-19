@@ -37,6 +37,9 @@ class Song {
   /// お気に入り状態
   final bool isFavorite;
 
+  /// 歌詞タイミング補正値（ミリ秒）。0が基準
+  final int lyricOffset;
+
   const Song({
     required this.id,
     required this.title,
@@ -46,6 +49,7 @@ class Song {
     this.lyrics = const [],
     this.albumArt,
     this.isFavorite = false,
+    this.lyricOffset = 0,
   });
 
   /// ファイルパスからシンプルなSongを生成するファクトリ
@@ -79,6 +83,7 @@ class Song {
       lyrics: lyrics ?? this.lyrics,
       albumArt: albumArt,
       isFavorite: isFavorite,
+      lyricOffset: lyricOffset,
     );
   }
 
@@ -93,6 +98,7 @@ class Song {
       lyrics: lyrics,
       albumArt: albumArt,
       isFavorite: isFavorite,
+      lyricOffset: lyricOffset,
     );
   }
 
@@ -107,6 +113,7 @@ class Song {
       lyrics: lyrics,
       albumArt: albumArt,
       isFavorite: isFavorite,
+      lyricOffset: lyricOffset,
     );
   }
 
@@ -118,6 +125,8 @@ class Song {
       'title': title,
       'artist': artist,
       'isFavorite': isFavorite ? 1 : 0,
+      'lrc_path': lrcPath,
+      'lyric_offset': lyricOffset,
     };
   }
 
@@ -128,7 +137,7 @@ class Song {
       title: map['title'] as String,
       artist: map['artist'] as String,
       filePath: map['filePath'] as String,
-      lrcPath: map['lrcPath'] as String?,
+      lrcPath: map['lrc_path'] as String?,
       lyrics: map['lyrics'] != null 
           ? (map['lyrics'] as List<dynamic>).map((item) => LyricLine(
               position: Duration(milliseconds: item['position'] as int),
@@ -137,6 +146,7 @@ class Song {
           : const [],
       albumArt: map['albumArt'] as Uint8List?,
       isFavorite: (map['isFavorite'] as int) == 1,
+      lyricOffset: map['lyric_offset'] as int? ?? 0,
     );
   }
 
@@ -153,6 +163,7 @@ class Song {
     List<LyricLine>? lyrics,
     Uint8List? albumArt,
     bool? isFavorite,
+    int? lyricOffset,
   }) {
     return Song(
       id: id ?? this.id,
@@ -163,6 +174,7 @@ class Song {
       lyrics: lyrics ?? this.lyrics,
       albumArt: albumArt ?? this.albumArt,
       isFavorite: isFavorite ?? this.isFavorite,
+      lyricOffset: lyricOffset ?? this.lyricOffset,
     );
   }
 }

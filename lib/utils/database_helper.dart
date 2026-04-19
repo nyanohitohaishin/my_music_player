@@ -89,7 +89,7 @@ class DatabaseHelper {
     ''');
 
     // Create indexes for better performance
-    await db.execute('CREATE INDEX idx_songs_filePath ON songs(filePath)');
+    await db.execute('CREATE INDEX idx_songs_file_path ON songs(file_path)');
     await db.execute('CREATE INDEX idx_songs_isFavorite ON songs(isFavorite)');
     await db.execute('CREATE INDEX idx_songs_title_artist ON songs(title, artist)');
     await db.execute('CREATE INDEX idx_playlist_songs_playlistId ON playlist_songs(playlistId)');

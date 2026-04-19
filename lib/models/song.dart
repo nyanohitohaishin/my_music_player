@@ -121,10 +121,10 @@ class Song {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'filePath': filePath,
+      'file_path': filePath,
       'title': title,
       'artist': artist,
-      'isFavorite': isFavorite ? 1 : 0,
+      'is_favorite': isFavorite ? 1 : 0,
       'lrc_path': lrcPath,
       'lyric_offset': lyricOffset,
     };
@@ -136,7 +136,7 @@ class Song {
       id: map['id'] as String,
       title: map['title'] as String,
       artist: map['artist'] as String,
-      filePath: map['filePath'] as String,
+      filePath: map['file_path'] as String,
       lrcPath: map['lrc_path'] as String?,
       lyrics: map['lyrics'] != null 
           ? (map['lyrics'] as List<dynamic>).map((item) => LyricLine(
@@ -145,7 +145,7 @@ class Song {
             )).toList()
           : const [],
       albumArt: map['albumArt'] as Uint8List?,
-      isFavorite: (map['isFavorite'] as int) == 1,
+      isFavorite: (map['is_favorite'] as int) == 1,
       lyricOffset: map['lyric_offset'] as int? ?? 0,
     );
   }

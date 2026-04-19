@@ -173,11 +173,11 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
       final uniqueFileName = '${nameWithoutExt}_$timestamp$extension';
       final uniquePath = p.join(appDir.path, uniqueFileName);
       // 
-      await File(sourcePath).copy(uniquePath);
+      await File(sourcePath).openRead().pipe(File(uniquePath).openWrite());
       return uniqueFileName; // Return filename only
     } else {
       // 
-      await File(sourcePath).copy(localPath);
+      await File(sourcePath).openRead().pipe(File(localPath).openWrite());
       return fileName; // Return filename only
     }
   }

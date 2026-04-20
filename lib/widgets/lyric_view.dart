@@ -185,6 +185,7 @@ class _LyricLineItem extends StatelessWidget {
   final VoidCallback onTap;
 
   const _LyricLineItem({
+    super.key,
     required this.lyricLine,
     required this.state,
     required this.onTap,

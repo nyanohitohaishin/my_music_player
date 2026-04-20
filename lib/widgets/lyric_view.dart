@@ -264,16 +264,18 @@ class _LyricLineItem extends StatelessWidget {
           ),
           child: SizedBox(
             width: double.infinity,
-            child: Text(
-              lyricLine.text.trim(),
-              textAlign: TextAlign.center,
-              // ────────────────────────────────────────
-              // 【改善 3】softWrap + maxLines なしで
-              //   長いフレーズが自然に折り返されます。
-              //   横 Padding は ListView の padding で
-              //   一括指定しているため、ここでは不要です。
-              // ────────────────────────────────────────
-              softWrap: true,
+            child: Center( // Centerで完全な中央揃え
+              child: Container(
+                constraints: BoxConstraints(
+                  maxWidth: double.infinity,
+                ),
+                child: Text(
+                  lyricLine.text.trim(),
+                  textAlign: TextAlign.center,
+                  softWrap: true,
+                  overflow: TextOverflow.visible,
+                ),
+              ),
             ),
           ),
         ),

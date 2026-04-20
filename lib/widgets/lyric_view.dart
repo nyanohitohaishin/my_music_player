@@ -175,7 +175,7 @@ class _LyricLineItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final text = lyricLine.text.isEmpty ? ' ' : _LyricSanitizer.clean(lyricLine.text);
+    final text = lyricLine.text.isEmpty ? '・' : _LyricSanitizer.clean(lyricLine.text);
 
     return GestureDetector(
       onTap: onTap,
@@ -452,7 +452,7 @@ class _EmptyLyricView extends StatelessWidget {
           Icon(Icons.lyrics_outlined, color: AppColors.textDisabled, size: 48),
           SizedBox(height: 16),
           Text(
-            ' ',
+            '歌詞がありません',
             style: TextStyle(
               color: AppColors.textDisabled,
               fontSize: 16,
@@ -461,7 +461,7 @@ class _EmptyLyricView extends StatelessWidget {
           ),
           SizedBox(height: 8),
           Text(
-            'LRC',
+            'LRCファイルを追加して歌詞を表示しましょう',
             style: TextStyle(
               color: AppColors.textDisabled,
               fontSize: 13,

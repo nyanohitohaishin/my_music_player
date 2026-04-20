@@ -3,12 +3,25 @@
 // 歌詞の自動スクロール＆ハイライト表示ウィジェット
 // ============================================================
 //
-// 【UI改善ポイント】
-//   1. 行間・余白: TextStyle.height + 縦 Padding でゆったりした呼吸感
-//   2. ハイライト: AnimatedDefaultTextStyle + AnimatedContainer で
-//                  サイズ・不透明度・テキスト影が滑らかにアニメーション
-//   3. 折り返し:   水平 Padding 32px + softWrap + 中央揃えで
-//                  長いフレーズが美しく折り返される
+// 【修正履歴 - テキスト中央揃え崩れの根本解決】
+//
+//   ■ 原因①（最有力）: LRC の \r による "幽霊キャリッジリターン"
+//     LRCファイルの行末が \r\n の場合、パーサーが \n で分割すると
+//     各行末に \r が残存します。trim() は行末の \r を除去しますが、
+//     ゼロ幅スペース等の制御文字は除去しません。
+//     テキストレンダラーが \r をキャリッジリターンとして解釈し
+//     「最後の文字が行頭に描画される」バグが発生。
+//     → _LyricSanitizer.clean() で完全除去。
+//
+//   ■ 原因②（構造的）: AnimatedDefaultTextStyle の継承パス問題
+//     AnimatedDefaultTextStyle は DefaultTextStyle (InheritedWidget) 経由で
+//     スタイルを伝播させます。アニメーション中の fontSize 補間 →
+//     DefaultTextStyle 更新 → Text の intrinsic width 再計算 というサイクルが
+//     LayoutBuilder の constraint 解決より先に走ることがあり、
+//     レイアウトパスの不整合を起こします。
+//     → TweenAnimationBuilder<TextStyle> + RichText に置き換え。
+//       RichText は DefaultTextStyle を一切参照しないため継承チェーン問題が根絶。
+//
 // ============================================================
 
 import 'package:flutter/material.dart';
@@ -23,9 +36,6 @@ import '../theme/app_theme.dart';
 // ─────────────────────────────────────────────
 
 /// ハイライト行の推定高さ（スクロール位置計算用）
-///
-/// 折り返しが発生すると実際の高さはこれより大きくなりますが、
-/// スクロール先の「目安」として使うため厳密な一致は不要です。
 const double _kItemBaseHeight = 72.0;
 
 /// 水平方向の内側余白（長いフレーズの折り返し制御）
@@ -36,6 +46,34 @@ const Duration _kAnimDuration = Duration(milliseconds: 350);
 
 /// アニメーション曲線
 const Curve _kAnimCurve = Curves.easeInOutCubic;
+
+// ─────────────────────────────────────────────
+// LRC テキストのサニタイザ
+// ─────────────────────────────────────────────
+
+/// LRC ファイル由来の文字列に含まれる制御文字・ゼロ幅文字を完全除去する。
+///
+/// Flutter のテキストレンダラーは \r をキャリッジリターンとして解釈するため、
+/// 行末に \r が残っていると「最後の文字が行頭に描画される」バグが発生する。
+abstract final class _LyricSanitizer {
+  static String clean(String raw) => raw
+      // ① CRLF を単一スペースに置換（改行を折り返しでなく空白として扱う）
+      .replaceAll('\r\n', ' ')
+      // ② 残存する単独 CR / LF を除去
+      .replaceAll('\r', '')
+      .replaceAll('\n', ' ')
+      // ③ ゼロ幅文字群（LRC タグの残骸として混入することがある）
+      .replaceAll('\u200B', '') // ZERO WIDTH SPACE
+      .replaceAll('\u200C', '') // ZERO WIDTH NON-JOINER
+      .replaceAll('\u200D', '') // ZERO WIDTH JOINER
+      .replaceAll('\uFEFF', '') // BOM / ZERO WIDTH NO-BREAK SPACE
+      // ④ NO-BREAK SPACE → 通常スペース（禁則処理の誤爆を防ぐ）
+      .replaceAll('\u00A0', ' ')
+      // ⑤ 連続スペースを1つに正規化
+      .replaceAll(RegExp(r' {2,}'), ' ')
+      // ⑥ 前後の空白を除去
+      .trim();
+}
 
 // ─────────────────────────────────────────────
 // 歌詞行の表示状態
@@ -101,14 +139,9 @@ class _LyricViewState extends ConsumerState<LyricView> {
     return ListView.builder(
       controller: _scrollController,
       itemCount: lyrics.length,
-      // ────────────────────────────────────────────────────
-      // 【改善 3】上下に大きなパディングを設けることで
-      //   現在行が常に画面の中央付近に来やすくなります。
-      //   値は viewportHeight の 40% 程度が Spotify 近似です。
-      // ────────────────────────────────────────────────────
       padding: EdgeInsets.symmetric(
         vertical: MediaQuery.of(context).size.height * 0.40,
-        horizontal: _kHorizontalPadding, // ← 左右余白をここで一括指定
+        horizontal: _kHorizontalPadding,
       ),
       itemBuilder: (context, index) {
         final state = _resolveState(index, currentIndex);
@@ -128,7 +161,6 @@ class _LyricViewState extends ConsumerState<LyricView> {
 
     final currentContext = _currentLyricKey.currentContext;
     if (currentContext != null) {
-      // GlobalKeyが有効な場合はensureVisibleで確実に中央配置
       Scrollable.ensureVisible(
         currentContext,
         alignment: 0.5,
@@ -150,8 +182,7 @@ class _LyricViewState extends ConsumerState<LyricView> {
           _scrollController.position.maxScrollExtent,
         ),
       );
-      
-      // 次フレームでensureVisibleを再試行
+
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final retryContext = _currentLyricKey.currentContext;
         if (retryContext != null) {
@@ -191,95 +222,114 @@ class _LyricLineItem extends StatelessWidget {
     required this.onTap,
   });
 
-  // ────────────────────────────────────────────
-  // 【改善 2】状態ごとのスタイル定義
+  // ── 状態ごとのターゲットスタイル ────────────────
   //
-  //  highlighted : 白・26sp・Bold・影付き → 「歌っている感」
-  //  near        : 半透明白・19sp・w500  → 視線誘導のための中間層
-  //  normal      : 低透明白・17sp・w400  → 背景に溶け込む
-  // ────────────────────────────────────────────
-  (Color, double, FontWeight, double) get _style => switch (state) {
-        _LyricLineState.highlighted => (
-            Colors.white,
-            26.0,
-            FontWeight.w700,
-            1.55, // TextStyle.height（行間係数）
+  // TextStyleTween が TextStyle.lerp() で全プロパティを補間するため、
+  // color / fontSize / fontWeight / shadows すべて滑らかにアニメーションします。
+  TextStyle get _targetTextStyle => switch (state) {
+        _LyricLineState.highlighted => TextStyle(
+            color: Colors.white,
+            fontSize: 26.0,
+            fontWeight: FontWeight.w700,
+            height: 1.55,
+            letterSpacing: 0.2,
+            shadows: [
+              Shadow(
+                color: Colors.white.withValues(alpha: 0.35),
+                blurRadius: 12,
+                offset: Offset.zero,
+              ),
+            ],
           ),
-        _LyricLineState.near => (
-            Colors.white.withValues(alpha: 0.55),
-            19.0,
-            FontWeight.w500,
-            1.6,
+        _LyricLineState.near => TextStyle(
+            color: Colors.white.withValues(alpha: 0.55),
+            fontSize: 19.0,
+            fontWeight: FontWeight.w500,
+            height: 1.6,
+            letterSpacing: 0.0,
+            shadows: const [],
           ),
-        _LyricLineState.normal => (
-            Colors.white.withValues(alpha: 0.30),
-            17.0,
-            FontWeight.w400,
-            1.6,
+        _LyricLineState.normal => TextStyle(
+            color: Colors.white.withValues(alpha: 0.30),
+            fontSize: 17.0,
+            fontWeight: FontWeight.w400,
+            height: 1.6,
+            letterSpacing: 0.0,
+            shadows: const [],
           ),
       };
 
-  List<Shadow> get _shadows => state == _LyricLineState.highlighted
-      ? [
-          Shadow(
-            color: Colors.white.withValues(alpha: 0.35),
-            blurRadius: 12,
-            offset: Offset.zero,
-          ),
-        ]
-      : [];
-
   @override
   Widget build(BuildContext context) {
-    final (color, fontSize, fontWeight, lineHeight) = _style;
+    // ── サニタイズ ──────────────────────────────────
+    // 空行は視覚的な区切りとして「・」を表示
+    final text = lyricLine.text.isEmpty
+        ? '・'
+        : _LyricSanitizer.clean(lyricLine.text);
 
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: // ────────────────────────────────────────────
-          // 【改善 1】上下 Padding で行間の「呼吸」を確保。
-          //   highlighted 行は大きめのパディングでさらに目立たせます。
-          // ────────────────────────────────────────────
-          AnimatedPadding(
+      child: AnimatedPadding(
+        // 上下余白のアニメーションは AnimatedPadding で問題なし（レイアウト非依存）
         duration: _kAnimDuration,
         curve: _kAnimCurve,
         padding: EdgeInsets.symmetric(
-          vertical: state == _LyricLineState.highlighted ? 12.0 :7.0,
+          vertical: state == _LyricLineState.highlighted ? 12.0 : 7.0,
         ),
-        child: AnimatedDefaultTextStyle(
+        child: TweenAnimationBuilder<TextStyle>(
+          // ──────────────────────────────────────────────────────
+          // 【修正】AnimatedDefaultTextStyle → TweenAnimationBuilder
+          //
+          // TextStyleTween(end: ...) を指定すると、state が変わるたびに
+          // 「現在の補間値 → 新しいターゲット」へ自動的に再アニメーションします。
+          // スタイルを DefaultTextStyle 経由ではなく RichText に直接渡すため、
+          // InheritedWidget の伝播タイミングに依存しません。
+          // ──────────────────────────────────────────────────────
+          tween: TextStyleTween(end: _targetTextStyle),
           duration: _kAnimDuration,
           curve: _kAnimCurve,
-          style: TextStyle(
-            color: color,
-            fontSize: fontSize,
-            fontWeight: fontWeight,
-            // ──────────────────────────────────────────
-            // 【改善 1】height で行間を拡張（1.55〜1.6）。
-            //   デフォルト（≈1.2）より広く設定することで
-            //   折り返し行でも窮屈に見えなくなります。
-            // ──────────────────────────────────────────
-            height: lineHeight,
-            letterSpacing: state == _LyricLineState.highlighted ? 0.2 : 0.0,
-            shadows: _shadows,
-          ),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return SizedBox(
-                width: constraints.maxWidth,
-                child: Text(
-                  lyricLine.text.isEmpty ? '' : lyricLine.text.trim(),
-                  textAlign: TextAlign.center,
-                  softWrap: true,
-                  overflow: TextOverflow.visible,
-                  textWidthBasis: TextWidthBasis.parent,
-                  strutStyle: const StrutStyle(
-                    forceStrutHeight: true,
-                    leading: 0.3,
-                  ),
+          builder: (context, animatedStyle, _) {
+            return SizedBox(
+              // ────────────────────────────────────────────────
+              // width: double.infinity で親（ListView の content area）の
+              // 幅いっぱいに tight constraints を確定させます。
+              // ListView.padding の horizontal: 32.0 が既に幅を決定しているため、
+              // LayoutBuilder は不要です（余分なレイアウトパスを削減）。
+              // ────────────────────────────────────────────────
+              width: double.infinity,
+              child: RichText(
+                // ──────────────────────────────────────────────
+                // 【修正】Text → RichText
+                //
+                // RichText は DefaultTextStyle を一切参照しません。
+                // animatedStyle を TextSpan に直接渡すため、
+                // アニメーション中のスタイル補間と幅計算が
+                // 完全に独立した単一のレイアウトパスで処理されます。
+                // ──────────────────────────────────────────────
+                text: TextSpan(
+                  text: text,
+                  style: animatedStyle,
                 ),
-              );
-            },
-          ),
+                textAlign: TextAlign.center,
+                // ──────────────────────────────────────────────
+                // textWidthBasis.parent:「最長行の幅」ではなく
+                // 「親から渡された制約幅（= SizedBox の width）」を基準にします。
+                // これにより折り返し最終行の1文字でも
+                // 必ず親幅の中央に配置されます。
+                // ──────────────────────────────────────────────
+                textWidthBasis: TextWidthBasis.parent,
+                // テキスト方向を明示（自動判定による禁則処理の誤爆を防ぐ）
+                textDirection: TextDirection.ltr,
+                softWrap: true,
+                overflow: TextOverflow.visible,
+                strutStyle: const StrutStyle(
+                  forceStrutHeight: true, // 日本語の行高ブレを抑制
+                  leading: 0.3,
+                ),
+              ),
+            );
+          },
         ),
       ),
     );

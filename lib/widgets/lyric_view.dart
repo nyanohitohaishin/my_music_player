@@ -109,6 +109,7 @@ class _LyricViewState extends ConsumerState<LyricView> {
       itemCount: lyrics.length,
       itemScrollController: _scrollController,
       itemPositionsListener: _positionsListener,
+      clipBehavior: Clip.none,
       padding: EdgeInsets.symmetric(
         vertical: MediaQuery.of(context).size.height * 0.40,
         horizontal: _kHorizontalPadding,
@@ -400,20 +401,27 @@ class _RenderLyricScaleBox extends RenderBox {
     final canvas = context.canvas;
     final rawH   = _painter.height + _verticalPadding * 2;
 
-    canvas.save();
-
-    canvas.translate(
-      offset.dx + size.width / 2,
-      offset.dy + size.height / 2,
+    // クリッピングバグ回避のため、描画境界を意図的に広げる（または無視する）
+    context.canvas.save();
+    context.pushClipRect(
+      needsCompositing,
+      offset,
+      Rect.fromLTWH(-9999, -9999, 19998, 19998), // 巨大な枠を定義してクリッピングを防ぐ
+      (context, offset) {
+          final innerCanvas = context.canvas;
+          innerCanvas.save();
+          innerCanvas.translate(
+            offset.dx + size.width / 2,
+            offset.dy + size.height / 2,
+          );
+          innerCanvas.scale(_scale);
+          innerCanvas.translate(-size.width / 2, -rawH / 2);
+          _painter.paint(innerCanvas, Offset(0.0, _verticalPadding));
+          innerCanvas.restore();
+      },
+      clipBehavior: Clip.none,
     );
-
-    canvas.scale(_scale);
-
-    canvas.translate(-size.width / 2, -rawH / 2);
-
-    _painter.paint(canvas, Offset(0.0, _verticalPadding));
-
-    canvas.restore();
+    context.canvas.restore();
   }
 
   @override

@@ -109,7 +109,6 @@ class _LyricViewState extends ConsumerState<LyricView> {
       itemCount: lyrics.length,
       itemScrollController: _scrollController,
       itemPositionsListener: _positionsListener,
-      clipBehavior: Clip.none,
       padding: EdgeInsets.symmetric(
         vertical: MediaQuery.of(context).size.height * 0.40,
         horizontal: _kHorizontalPadding,

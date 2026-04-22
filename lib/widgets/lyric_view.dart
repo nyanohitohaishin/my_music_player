@@ -368,14 +368,25 @@ class _RenderLyricScaleBox extends RenderBox {
   set color(Color v) {
     if (_color == v) return;
     _color = v;
-    _rebuildPainter();
-    markNeedsPaint();
+    _updatePainterSpan();
+    // ★ バグ修正: markNeedsPaint() → markNeedsLayout()
+    //
+    // _rebuildPainter() / _updatePainterSpan() は TextPainter の text を更新する。
+    // TextPainter.text の更新はレイアウトを無効にするため、
+    // 必ず performLayout() → _painter.layout() を経由してから
+    // paint() が呼ばれなければならない。
+    //
+    // 従来の markNeedsPaint() だとレイアウトをスキップするため、
+    // paint() 内で _painter.height が 0 を返し（未レイアウト状態）、
+    // rawH = 0 + padding しか確保されず全テキストが潰れてクリップされていた。
+    markNeedsLayout();
   }
 
   set shadows(List<Shadow> v) {
+    if (_listEquals(_shadows, v)) return;
     _shadows = List.from(v);
-    _rebuildPainter();
-    markNeedsPaint();
+    _updatePainterSpan();
+    markNeedsLayout(); // ★ 同上: markNeedsPaint() → markNeedsLayout()
   }
 
   set verticalPadding(double v) {
@@ -384,32 +395,48 @@ class _RenderLyricScaleBox extends RenderBox {
     markNeedsLayout();
   }
 
-  // ── TextPainter ──────────────────────────────────
+  // ── TextPainter 管理 ────────────────────────────
   //
-  // ★ textAlign: TextAlign.left  ← Spotify スタイルに変更
-  // ★ fontSizeは _kBaseFontSize 固定（リフロー防止の根拠）
+  // TextPainter オブジェクト自体は一度だけ生成し（コンストラクタで）、
+  // text プロパティのみを更新する。
+  // これにより textAlign / textDirection / strutStyle 等の
+  // イミュータブル設定が保持される。
   //
   void _rebuildPainter() {
+    // 初回生成のみ呼ぶ（コンストラクタから呼ばれる）
     _painter = TextPainter(
-      text: TextSpan(
-        text: _text,
-        style: TextStyle(
-          color: _color,
-          fontSize: _kBaseFontSize,   // ← 絶対に変えない
-          fontWeight: FontWeight.w700,
-          height: 1.45,
-          letterSpacing: -0.3,        // 日本語の詰め気味設定（Spotify近似）
-          shadows: _shadows,
-        ),
-      ),
       textDirection: TextDirection.ltr,
-      textAlign: TextAlign.left,            // ★ 左揃え（Spotify スタイル）
+      textAlign: TextAlign.left,             // Spotify スタイル: 左揃え
       textWidthBasis: TextWidthBasis.parent, // 親幅基準で折り返す
       strutStyle: const StrutStyle(
         forceStrutHeight: true,
         leading: 0.2,
       ),
     );
+    _updatePainterSpan();
+  }
+
+  void _updatePainterSpan() {
+    // text プロパティの更新は内部でレイアウトを無効化する
+    _painter.text = TextSpan(
+      text: _text,
+      style: TextStyle(
+        color: _color,
+        fontSize: _kBaseFontSize, // ← 絶対に変えない（リフロー防止の根拠）
+        fontWeight: FontWeight.w700,
+        height: 1.45,
+        letterSpacing: -0.3,
+        shadows: _shadows,
+      ),
+    );
+  }
+
+  static bool _listEquals(List<Shadow> a, List<Shadow> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 
   // ── Layout ───────────────────────────────────────
@@ -417,9 +444,11 @@ class _RenderLyricScaleBox extends RenderBox {
   @override
   void performLayout() {
     final maxW = constraints.maxWidth;
+    // ここで必ず layout() を呼ぶことで、直前の _updatePainterSpan() による
+    // 無効化が解消され、以降 _painter.height が正しい値を返す。
     _painter.layout(maxWidth: maxW);
     final rawH = _painter.height + _verticalPadding * 2;
-    // ★ Layout 高さを scale で縮める → ゴーストスペース消滅
+    // Layout 高さを scale で縮める → ゴーストスペース消滅
     size = Size(maxW, rawH * _scale);
   }
 
@@ -429,25 +458,28 @@ class _RenderLyricScaleBox extends RenderBox {
   void paint(PaintingContext context, Offset offset) {
     if (_scale <= 0.0) return;
 
-    final canvas = context.canvas;
-    final rawH   = _painter.height + _verticalPadding * 2;
+    // 安全網: 万一レイアウト未実行のまま paint が呼ばれても正しく描画する。
+    // （通常は performLayout → paint の順で呼ばれるため不要だが念のため）
+    if (!_painter.debugDisposed) {
+      try {
+        _painter.layout(maxWidth: size.width);
+      } catch (_) {
+        // すでにレイアウト済みの場合は何もしない
+      }
+    }
+
+    final canvas  = context.canvas;
+    final rawH    = _painter.height + _verticalPadding * 2;
 
     canvas.save();
 
-    // ★ 修正: スケールの起点を「左端」にピン留め
-    // X軸は offset.dx（左端固定）、Y軸のみ垂直中央を基準にする。
-    // 中央を起点にすると scale 変化のたびに左端がズレて
-    // 文字が横方向にウネウネ動く原因になるため。
-    canvas.translate(
-      offset.dx,
-      offset.dy + size.height / 2,
-    );
-
+    // スケールの起点を「左上」に固定する。
+    //   X = offset.dx（左端ピン留め: 横ブレ完全防止）
+    //   Y = offset.dy（上端ピン留め: シンプルで正確）
+    // scale 後にテキストを _verticalPadding 分だけ下へずらして描画する。
+    // rawH * _scale = size.height となるため、テキストは必ず bounds 内に収まる。
+    canvas.translate(offset.dx, offset.dy);
     canvas.scale(_scale);
-
-    // 横方向は動かさず、縦方向だけ rawH の半分だけ戻す
-    canvas.translate(0, -rawH / 2);
-
     _painter.paint(canvas, Offset(0.0, _verticalPadding));
 
     canvas.restore();
